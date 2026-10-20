@@ -54,6 +54,19 @@ jobs:
           "$digest  MIDIVOLT-Windows-0.1.0rc1-py311.zip" |
             Set-Content -Path "$zip.sha256" -Encoding ascii
           Write-Host "ARTIFACT_SHA256=$digest"
+      - name: Unpack RC ZIP and exercise actual Windows PowerShell installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $extracted = Join-Path $env:RUNNER_TEMP "midivolt-rc-unpacked"
+          $installed = Join-Path $env:RUNNER_TEMP "midivolt-rc-installed"
+          Expand-Archive -Path dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip -DestinationPath $extracted
+          $installer = Join-Path $extracted "Install-MIDIVOLT.ps1"
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $installer -AllowNetwork -Destination $installed
+          if ($LASTEXITCODE -ne 0) { throw "Packaged PowerShell installer failed" }
+          if (-not (Test-Path (Join-Path $installed "Scripts/midivolt.exe"))) {
+            throw "Installer did not produce MIDIVOLT executable"
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: MIDIVOLT-Windows-0.1.0rc1
