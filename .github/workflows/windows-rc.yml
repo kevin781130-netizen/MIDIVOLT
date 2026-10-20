@@ -1,0 +1,63 @@
+name: Windows Developer RC
+
+on:
+  push:
+    branches: ["integration/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-wheel-and-zip:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build pure Python wheel
+        run: |
+          python -m pip install --disable-pip-version-check "build>=1.2,<2"
+          python -m build --wheel --outdir dist
+      - name: Install wheel in clean Python 3.11 and smoke CLI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $venv = Join-Path $env:RUNNER_TEMP "midivolt-wheel-smoke"
+          py -3.11 -m venv $venv
+          if ($LASTEXITCODE -ne 0) { throw "venv creation failed" }
+          $python = Join-Path $venv "Scripts\python.exe"
+          $wheels = @(Get-ChildItem -Path dist -File -Filter "midivolt-*.whl")
+          if ($wheels.Count -ne 1) { throw "Expected a single MIDIVOLT wheel" }
+          & $python -m pip install --no-input $wheels[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw "wheel install failed" }
+          & pwsh -NoProfile -NonInteractive -File packaging/windows/Smoke-MIDIVOLT.ps1 -PythonExe $python
+          if ($LASTEXITCODE -ne 0) { throw "offline MIDI smoke failed" }
+      - name: Build self-contained installer ZIP (dependencies and Python not bundled)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $target = "dist\windows-rc"
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Copy-Item (Get-ChildItem -Path dist -Filter "midivolt-*.whl" -File).FullName $target
+          Copy-Item packaging/windows/Install-MIDIVOLT.ps1 $target
+          Copy-Item packaging/windows/Smoke-MIDIVOLT.ps1 $target
+          Copy-Item packaging/windows/README-Windows.txt $target
+          Copy-Item LICENSE $target
+          Copy-Item THIRD_PARTY_NOTICES.md $target
+          $zip = "dist\MIDIVOLT-Windows-0.1.0rc1-py311.zip"
+          Compress-Archive -Path "$target\*" -DestinationPath $zip
+          $digest = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLowerInvariant()
+          "$digest  MIDIVOLT-Windows-0.1.0rc1-py311.zip" |
+            Set-Content -Path "$zip.sha256" -Encoding ascii
+          Write-Host "ARTIFACT_SHA256=$digest"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MIDIVOLT-Windows-0.1.0rc1
+          path: |
+            dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip
+            dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip.sha256
+          if-no-files-found: error
+          retention-days: 30

@@ -1,6 +1,6 @@
 # MIDIVOLT
 
-**AI-ready MIDI composition and arrangement engine.** This repository is the first working, commercially oriented core. It is not yet a DAW plugin or a text-to-MIDI generative model.
+**AI-ready MIDI composition and arrangement engine.** This is a Python CLI developer release candidate with external AI model runner adapters. No pretrained weights, GUI DAW or VST3 plug-in are bundled.
 
 ## What works in this first slice
 
@@ -11,6 +11,31 @@
 - Optionally transcribe audio to MIDI using **Spotify Basic Pitch** (Apache-2.0).
 - A typed generator-provider contract for future models; **no model weights or pretrained systems are silently downloaded**.
 - Windows and Linux core CI. No VST3/AU/AAX binaries yet.
+
+## Windows developer RC 0.1.0rc1
+
+The **single integration branch** `integration/windows-rc1-20261020` consolidates
+previous Draft PRs #1–#7 without merging to `main`. Its Windows workflow builds
+an installable Python wheel and a ZIP with installer, smoke test, licensing
+notices and SHA256 checksum. It does not redistribute dependencies or Python.
+
+After downloading and verifying the artifact from the
+[Windows Developer RC workflow](https://github.com/kevin781130-netizen/MIDIVOLT/actions/workflows/windows-rc.yml),
+extract the ZIP and run on Windows with your trusted Python 3.11 installation:
+
+```powershell
+# Explicit network consent to fetch Python dependencies:
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-MIDIVOLT.ps1 -AllowNetwork
+
+# Or no network downloads if you supplied a complete, trusted local wheelhouse:
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-MIDIVOLT.ps1 -Wheelhouse "D:\audited-wheels"
+```
+
+The installer refuses existing destinations and runs local MIDI generation,
+locked-track review, Cubase Type 1 export and Model Hub catalog smoke checks.
+See [Windows RC packaging and limitations](docs/windows-rc.md).
+The developer RC is **CLI-only**, and real Cubase GUI/model GPU acceptance is
+not claimed by the workflow.
 
 ## Install
 
@@ -166,12 +191,12 @@ Existing output files are protected: use `--overwrite` to replace them. Input an
 
 ## Current limitations / next modules
 
-- No transformer model is connected yet. Future adapters: Text2midi and Anticipatory Music Transformer, subject to separate code/weight/data rights review and runtime benchmarks.
+- Text2midi and Anticipatory model runners are connected to upstream inference functions **only in separately provisioned environments**. Real trained checkpoint quality, GPU execution and commercial rights remain to be validated.
 - MIDI file interchange with independently installed DAWs exists; no embedded DAW/VST3 instrument/effect, live MIDI routing, piano-roll UI, or MusicXML export.
 - Key analysis is an estimate, not guaranteed harmonic ground truth.
 - Audio-to-MIDI quality depends on source audio; Basic Pitch is best tested with isolated instruments and can fail on dense mixes.
 - Chord accompaniment uses a straightforward root-position voicing; sophisticated voice leading and genre-specific arrangement are future milestones.
-- User materials remain local; the application does not contact hosted AI services.
+- MIDI files and generated materials remain local by default. Model Hub **online** search/download and explicitly authorized pip environment setup can contact external services; upstream model/LLM deployments may have their own network behavior.
 
 ## Architecture
 
