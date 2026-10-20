@@ -31,6 +31,18 @@ Optional audio module (heavier dependencies, not part of CI):
 python -m pip install -e ".[audio]"
 ```
 
+## External workstations: Sawdust and tsov
+
+MIDIVOLT can now create target-specific **standard MIDI** files for separately installed [Sawdust](https://github.com/NeonMedusa/Sawdust) (MIT) and [tsov](https://github.com/luolianst/tsov) (AGPL-3.0):
+
+```shell
+midivolt-bridge --target sawdust --input demo.mid --out demo-sawdust.mid
+midivolt-bridge --target sawdust --input demo.mid --out demo-grid.mid --quantize
+midivolt-bridge --target tsov --input demo.mid --out demo-tsov.mid
+```
+
+Import the resulting MIDI in the target application's UI. `--quantize` is optional and lossy; original input files are never overwritten. The command prints a JSON compatibility report with known track, timing, and automation limitations. See [bridge documentation](docs/sawdust-tsov-bridge.md). The other applications and their native project formats are **not** bundled.
+
 ## Quick start
 
 ```shell
@@ -47,7 +59,7 @@ Existing output files are protected: use `--overwrite` to replace them. Input an
 ## Current limitations / next modules
 
 - No transformer model is connected yet. Future adapters: Text2midi and Anticipatory Music Transformer, subject to separate code/weight/data rights review and runtime benchmarks.
-- No host DAW integration, VST3 instrument/effect, live MIDI routing, piano-roll UI, or MusicXML export.
+- MIDI file interchange with independently installed DAWs exists; no embedded DAW/VST3 instrument/effect, live MIDI routing, piano-roll UI, or MusicXML export.
 - Key analysis is an estimate, not guaranteed harmonic ground truth.
 - Audio-to-MIDI quality depends on source audio; Basic Pitch is best tested with isolated instruments and can fail on dense mixes.
 - Chord accompaniment uses a straightforward root-position voicing; sophisticated voice leading and genre-specific arrangement are future milestones.
