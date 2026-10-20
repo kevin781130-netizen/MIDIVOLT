@@ -43,6 +43,19 @@ midivolt-bridge --target tsov --input demo.mid --out demo-tsov.mid
 
 Import the resulting MIDI in the target application's UI. `--quantize` is optional and lossy; original input files are never overwritten. The command prints a JSON compatibility report with known track, timing, and automation limitations. See [bridge documentation](docs/sawdust-tsov-bridge.md). The other applications and their native project formats are **not** bundled.
 
+## AI editing in an external tsov Agent via MCP (experimental)
+
+The original Apache-2.0 MIDIVOLT client can talk to a **separately installed** AGPL-3.0 tsov project through a child process. No tsov source, model weights or Python 3.12 dependency is shipped by MIDIVOLT. tsov's natural-language `edit_score` tool runs in its own environment and uses the LLM endpoint configured in tsov.
+
+```powershell
+midivolt-tsov --python "C:\\tsov\\.venv\\Scripts\\python.exe" --root "C:\\tsov" projects
+midivolt-tsov --python "C:\\tsov\\.venv\\Scripts\\python.exe" --root "C:\\tsov" status --project demo
+midivolt-tsov --python "C:\\tsov\\.venv\\Scripts\\python.exe" --root "C:\\tsov" edit --project demo --track 0 --feedback "Preserve the motif, add a short variation" --apply
+midivolt-tsov --python "C:\\tsov\\.venv\\Scripts\\python.exe" --root "C:\\tsov" undo --project demo --apply
+```
+
+Default: read-only. Changes require `--apply`. tsov returns the **after-apply diff**; it is not a pre-approval preview. See [tsov MCP setup, protections and licensing](docs/tsov-mcp.md). Run `pytest -q tests/test_tsov_mcp.py` for protocol tests with a simulated server. Live Windows acceptance remains unverified.
+
 ## Quick start
 
 ```shell

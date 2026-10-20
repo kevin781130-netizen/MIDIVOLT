@@ -21,6 +21,7 @@ dev = ["pytest>=8,<10"]
 [project.scripts]
 midivolt = "midivolt.cli:main"
 midivolt-bridge = "midivolt.bridge_cli:main"
+midivolt-tsov = "midivolt.tsov_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
