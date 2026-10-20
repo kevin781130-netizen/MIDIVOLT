@@ -1,8 +1,8 @@
 name: Windows Developer RC
 
 on:
-  push:
-    branches: ["integration/**"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   windows-wheel-and-zip:
+    if: startsWith(github.head_ref, 'integration/')
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
