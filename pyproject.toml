@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "midivolt"
+version = "0.1.0"
+description = "Modular, commercially oriented MIDI creation and arrangement engine"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = {file = "LICENSE"}
+dependencies = [
+  "pretty_midi>=0.2.11,<0.3",
+  "music21>=9.1,<10",
+]
+
+[project.optional-dependencies]
+audio = ["basic-pitch==0.4.0"]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+midivolt = "midivolt.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

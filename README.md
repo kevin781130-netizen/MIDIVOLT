@@ -1,0 +1,67 @@
+# MIDIVOLT
+
+**AI-ready MIDI composition and arrangement engine.** This repository is the first working, commercially oriented core. It is not yet a DAW plugin or a text-to-MIDI generative model.
+
+## What works in this first slice
+
+- Read and write Standard MIDI Files with **pretty_midi** (MIT).
+- Interpret lead-sheet chord symbols with **music21** (BSD-3-Clause).
+- Generate separate chord and bass MIDI tracks without changing the original tracks.
+- Detect a rough musical key and inspect a MIDI arrangement.
+- Optionally transcribe audio to MIDI using **Spotify Basic Pitch** (Apache-2.0).
+- A typed generator-provider contract for future models; **no model weights or pretrained systems are silently downloaded**.
+- Windows and Linux core CI. No VST3/AU/AAX binaries yet.
+
+## Install
+
+Python **3.11** is used to intersect the supported versions of music21 9.x and the optional Basic Pitch 0.4.0. Use a virtual environment:
+
+```powershell
+py -3.11 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+pytest -q
+```
+
+Linux/macOS: `python3.11 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.
+
+Optional audio module (heavier dependencies, not part of CI):
+
+```powershell
+python -m pip install -e ".[audio]"
+```
+
+## Quick start
+
+```shell
+midivolt create --chords "Fmaj7 Dm7 Gm7 C7" --bpm 70 --out demo.mid
+midivolt analyze --input demo.mid
+midivolt arrange --input melody.mid --chords "Fmaj7 Dm7 Gm7 C7" --out arranged.mid
+midivolt transcribe --input solo.wav --out solo.mid
+```
+
+The `arrange` operation deep-copies the MIDI data, retains every existing track and note, and adds separate named `MIDIVOLT Chords` and `MIDIVOLT Bass` tracks. MIDI tick/tempo mapping is used, so existing tempo maps are preserved. Chords are one bar each in **4/4 quarter-note units** by default; this is not yet a meter-aware arranger. Set `--beats-per-chord` to override.
+
+Existing output files are protected: use `--overwrite` to replace them. Input and output may not be the same file unless explicitly overwritten.
+
+## Current limitations / next modules
+
+- No transformer model is connected yet. Future adapters: Text2midi and Anticipatory Music Transformer, subject to separate code/weight/data rights review and runtime benchmarks.
+- No host DAW integration, VST3 instrument/effect, live MIDI routing, piano-roll UI, or MusicXML export.
+- Key analysis is an estimate, not guaranteed harmonic ground truth.
+- Audio-to-MIDI quality depends on source audio; Basic Pitch is best tested with isolated instruments and can fail on dense mixes.
+- Chord accompaniment uses a straightforward root-position voicing; sophisticated voice leading and genre-specific arrangement are future milestones.
+- User materials remain local; the application does not contact hosted AI services.
+
+## Architecture
+
+- `src/midivolt/arrange.py` — non-destructive MIDI accompaniment.
+- `src/midivolt/theory.py` — chord parsing / rough key detection.
+- `src/midivolt/audio.py` — optional Basic Pitch adapter.
+- `src/midivolt/io.py` — validated MIDI file I/O.
+- `src/midivolt/providers.py` — pluggable future AI generation contract.
+- `src/midivolt/cli.py` — runnable command-line entry point.
+
+## Licensing
+
+MIDIVOLT is Apache-2.0. Third-party packages are installed as dependencies rather than vendored. See `THIRD_PARTY_NOTICES.md` for direct dependencies and licensing boundaries. Review model **weights**, data and redistribution conditions independently before adding models.

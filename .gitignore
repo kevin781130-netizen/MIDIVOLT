@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.coverage
+*.mid
+*.midi
+*.wav
+*.mp3
+*.flac
+!tests/fixtures/*.mid
