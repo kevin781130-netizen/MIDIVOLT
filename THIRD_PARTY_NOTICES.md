@@ -15,3 +15,7 @@ The bridge emits standard MIDI files. Neither Sawdust nor tsov is an installed d
 The licenses of optional/transitive dependencies, corpora, sounds, models, checkpoints, training data and bundled plugins must be checked before commercial distribution. Keep full notices in builds.
 
 **Not incorporated/downloaded by this PR:** Text2midi, Anticipatory Music Transformer, MIDI-GPT, MT3, MIDI-LLM and other pretrained models. Source license != checkpoint/training data license.
+
+## tsov MCP boundary (experimental)
+
+The optional client in `src/midivolt/tsov_mcp.py` and `src/midivolt/tsov_cli.py` is MIDIVOLT-owned code implementing MCP JSON-RPC. It launches an independently installed tsov process; no tsov source, checkpoints, assets or dependencies are vendored here. The tsov software retains AGPL-3.0 and may entail additional obligations if modified, combined, hosted or redistributed. Treat the process boundary as an engineering choice rather than a legal exemption; obtain counsel for the final commercial deployment model.
