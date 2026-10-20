@@ -79,8 +79,8 @@ def main(argv: list[str] | None = None) -> int:
                 ],
                 "tracks": [
                     {
-                        "name": inst.name, "program": inst.program,
-                        "is_drum": inst.is_drum, "notes": len(inst.notes),
+                        "name": str(inst.name), "program": int(inst.program),
+                        "is_drum": bool(inst.is_drum), "notes": len(inst.notes),
                     }
                     for inst in midi.instruments
                 ],

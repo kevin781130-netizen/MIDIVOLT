@@ -1,6 +1,7 @@
 """MCP protocol and safety tests against a fake local stdio server."""
 
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -92,7 +93,7 @@ def test_spawn_without_shell_or_autoinstall(tmp_path):
     (root / "tsov").mkdir(parents=True)
     (root / "tsov" / "cli.py").write_text("")
     argv = tsov_command(sys.executable, root, allow_write=False)
-    assert argv[0] == sys.executable
+    assert Path(argv[0]).resolve() == Path(sys.executable).resolve()
     assert argv[1:4] == ["-m", "tsov.cli", "mcp"]
     assert "--allow-write" not in argv
     assert "--web-guard" in argv and "strict" in argv
