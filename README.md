@@ -72,6 +72,19 @@ midivolt-review propose --input melody.mid --chords "Fmaj7 Dm7 Gm7 C7" --candida
 
 Source and candidate hashes are checked before apply. Locked tracks preserve notes, expression and identity; tempo, meter and key maps cannot silently change. Existing output files will not be overwritten. [Review engine contract and limits](docs/arrangement-review.md).
 
+## Optional local pretrained model generation
+
+Two model runner adapters now call the upstream **Text2midi** Transformer (text-to-MIDI) and **Anticipatory Music Transformer** (melody-conditioned accompaniment) using local model assets in external Python environments. They do **not** download weights or install external model repositories:
+
+```powershell
+midivolt-model text2midi --python MODEL_PYTHON --checkout TEXT2MIDI_CHECKOUT --checkpoint MODEL_FILE --vocab REMI_PICKLE --t5-dir LOCAL_T5_DIR --prompt "F major romantic synth flute" --source melody.mid --out candidate.mid --manifest plan.json --lock 0
+midivolt-model anticipation --python MODEL_PYTHON --checkout ANTICIPATION_CHECKOUT --checkpoint MODEL_DIR --source melody.mid --melody-program 73 --seconds 12 --out candidate.mid --manifest plan.json --lock 0
+midivolt-review preview --manifest plan.json
+midivolt-review apply --manifest plan.json --out approved.mid --approve
+```
+
+Each command requires real existing local paths. Choose one model command per candidate (do not reuse output names). The generated MIDI is appended to a copy of the original source, then passed to the existing locked-track review engine. No production model inference, Windows/Cubase, or VST3 acceptance has been verified yet. Read the [model installation, security and licensing guide](docs/model-adapters.md).
+
 ## Quick start
 
 ```shell
