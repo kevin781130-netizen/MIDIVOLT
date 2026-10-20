@@ -28,6 +28,7 @@ midivolt-model = "midivolt.model_cli:main"
 midivolt-hub = "midivolt.model_hub_cli:main"
 midivolt-env = "midivolt.environment_cli:main"
 midivolt-accept = "midivolt.acceptance_cli:main"
+midivolt-cubase = "midivolt.cubase_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

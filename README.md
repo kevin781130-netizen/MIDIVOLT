@@ -131,6 +131,26 @@ midivolt-env verify --env NEW_VENV
 See [Windows setup and actual model inference acceptance](docs/model-runtime.md).
 No GPU, end-to-end model quality or Cubase compatibility is asserted by unit tests.
 
+## Cubase SMF Type 1 export and acceptance profile
+
+MIDIVOLT now has a strict **MIDI event-preservation gate** for Cubase:
+`midivolt-cubase check`, `prepare` and `compare`.
+A Type 1 export with a conductor track and explicit 480 PPQ is created
+without editing the source MIDI. This includes tempo/meter, channels, notes,
+CC, pitch bend, SysEx and markers. The exporter aborts if MIDI event content
+changes or a positive-duration note is collapsed by PPQ scaling.
+
+```powershell
+midivolt-cubase check --input approved.mid
+midivolt-cubase prepare --input approved.mid --out cubase-import.mid --ppq 480
+# After a real Cubase import + export:
+midivolt-cubase compare --reference cubase-import.mid --returned cubase-roundtrip.mid --strict
+```
+
+See [Cubase import instructions and strict MIDI event checks](docs/cubase-acceptance.md).
+Automated tests cannot verify Cubase GUI/VST3 playback; that remains an
+explicit Windows real-application acceptance test.
+
 ## Quick start
 
 ```shell
