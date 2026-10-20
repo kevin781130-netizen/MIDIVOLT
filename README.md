@@ -105,6 +105,32 @@ See [Model Hub guide](docs/model-hub.md). This is **not** a one-click
 model installer: upstream Python environments and tokenizer/model
 dependencies still need to be provisioned separately.
 
+## Model-specific Python runtime environments and actual inference acceptance
+
+MIDIVOLT can now create a **separate version-pinned venv** for Text2midi and
+Anticipatory. Commands `midivolt-env plan`, `create --confirm-create`,
+`install --confirm-install` and `verify` check the upstream source Git SHA,
+the `requirements.txt` SHA256, local Python version and installed packages.
+Online pip installation requires an additional `--allow-network`, while the
+`--wheelhouse` option supports offline dependency provisioning.
+
+`midivolt-accept` performs a **real model inference** only after the user's
+`--confirm-inference`, validates the generated candidate MIDI and melody lock,
+and writes an acceptance JSON with elapsed time and hashes. No weights,
+tokenizers or Python interpreter are fetched automatically.
+
+```powershell
+# Approved upstream checkout and existing Python 3.10 installation required
+midivolt-env plan text2midi --checkout SOURCE --revision APPROVED40CHARSHA --base-python PYTHON310 --env NEW_VENV
+midivolt-env create text2midi --checkout SOURCE --revision APPROVED40CHARSHA --base-python PYTHON310 --env NEW_VENV --confirm-create
+midivolt-env install --env NEW_VENV --allow-network --confirm-install
+midivolt-env verify --env NEW_VENV
+# Real checkpoint acceptance: see the complete command in docs/model-runtime.md
+```
+
+See [Windows setup and actual model inference acceptance](docs/model-runtime.md).
+No GPU, end-to-end model quality or Cubase compatibility is asserted by unit tests.
+
 ## Quick start
 
 ```shell

@@ -26,6 +26,8 @@ midivolt-tsov = "midivolt.tsov_cli:main"
 midivolt-review = "midivolt.review_cli:main"
 midivolt-model = "midivolt.model_cli:main"
 midivolt-hub = "midivolt.model_hub_cli:main"
+midivolt-env = "midivolt.environment_cli:main"
+midivolt-accept = "midivolt.acceptance_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
