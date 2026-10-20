@@ -56,6 +56,22 @@ midivolt-tsov --python "C:\\tsov\\.venv\\Scripts\\python.exe" --root "C:\\tsov" 
 
 Default: read-only. Changes require `--apply`. tsov returns the **after-apply diff**; it is not a pre-approval preview. See [tsov MCP setup, protections and licensing](docs/tsov-mcp.md). Run `pytest -q tests/test_tsov_mcp.py` for protocol tests with a simulated server. Live Windows acceptance remains unverified.
 
+## Reviewable AI arrangement candidates
+
+**MIDIVOLT now supports a review-first multi-track arrangement workflow.** AI models or external workstations can generate a candidate MIDI; the built-in engine validates melody locks, checks changed notes and only exports an approved copy. This is a validation/editing workflow, **not yet a trained text-to-MIDI model**.
+
+```powershell
+# Work with an AI-generated MIDI candidate
+midivolt-review propose --input melody.mid --candidate candidate.mid --manifest proposal.json --lock 0
+midivolt-review preview --manifest proposal.json
+midivolt-review apply --manifest proposal.json --out approved.mid --approve
+
+# Or propose chords/bass from built-in deterministic arranger
+midivolt-review propose --input melody.mid --chords "Fmaj7 Dm7 Gm7 C7" --candidate-out generated.mid --manifest generated.json --lock 0
+```
+
+Source and candidate hashes are checked before apply. Locked tracks preserve notes, expression and identity; tempo, meter and key maps cannot silently change. Existing output files will not be overwritten. [Review engine contract and limits](docs/arrangement-review.md).
+
 ## Quick start
 
 ```shell
