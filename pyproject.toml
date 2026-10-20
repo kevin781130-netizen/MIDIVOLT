@@ -23,6 +23,7 @@ midivolt = "midivolt.cli:main"
 midivolt-bridge = "midivolt.bridge_cli:main"
 midivolt-tsov = "midivolt.tsov_cli:main"
 midivolt-review = "midivolt.review_cli:main"
+midivolt-model = "midivolt.model_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

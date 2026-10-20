@@ -19,3 +19,7 @@ The licenses of optional/transitive dependencies, corpora, sounds, models, check
 ## tsov MCP boundary (experimental)
 
 The optional client in `src/midivolt/tsov_mcp.py` and `src/midivolt/tsov_cli.py` is MIDIVOLT-owned code implementing MCP JSON-RPC. It launches an independently installed tsov process; no tsov source, checkpoints, assets or dependencies are vendored here. The tsov software retains AGPL-3.0 and may entail additional obligations if modified, combined, hosted or redistributed. Treat the process boundary as an engineering choice rather than a legal exemption; obtain counsel for the final commercial deployment model.
+
+## Text2midi and Anticipatory Music Transformer runners
+
+Optional external upstream source repositories (not copied, vendored or installed): [AMAAI-Lab/Text2midi](https://github.com/AMAAI-Lab/Text2midi) (MIT), [jthickstun/anticipation](https://github.com/jthickstun/anticipation) (Apache-2.0). Hugging Face pretrained model cards currently list Apache-2.0 for both [amaai-lab/text2midi](https://huggingface.co/amaai-lab/text2midi) and [stanford-crfm/music-medium-800k](https://huggingface.co/stanford-crfm/music-medium-800k). No pretrained weights, model code, MIDI datasets, or T5 tokenizer files are bundled. Text2midi vocabulary is a Python pickle; execute only trusted files. Reconfirm model weights, datasets, dependencies, media/music rights, copyright/attribution and commercial distribution obligations before shipping a binary.
