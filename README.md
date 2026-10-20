@@ -85,6 +85,26 @@ midivolt-review apply --manifest plan.json --out approved.mid --approve
 
 Each command requires real existing local paths. Choose one model command per candidate (do not reuse output names). The generated MIDI is appended to a copy of the original source, then passed to the existing locked-track review engine. No production model inference, Windows/Cubase, or VST3 acceptance has been verified yet. Read the [model installation, security and licensing guide](docs/model-adapters.md).
 
+## Model Hub (catalog and controlled downloads)
+
+`midivolt-hub` is an opt-in Hugging Face catalog and model asset manager.
+Local operations require no internet; `--online` explicitly enables
+remote search/model-metadata inspection. `download` requires a pinned
+40-character revision, explicit license acceptance, explicit download consent,
+and a second acknowledgment for unsafe BIN/PKL asset formats.
+
+```powershell
+pip install -e ".[hub,dev]"
+midivolt-hub catalog
+midivolt-hub inspect text2midi --online
+midivolt-hub inspect anticipation --online
+midivolt-hub doctor anticipation --python "C:\\models\\anticipation\\.venv\\Scripts\\python.exe" --checkout "C:\\models\\anticipation" --checkpoint "C:\\MIDIVOLT\\Models\\anticipation"
+```
+
+See [Model Hub guide](docs/model-hub.md). This is **not** a one-click
+model installer: upstream Python environments and tokenizer/model
+dependencies still need to be provisioned separately.
+
 ## Quick start
 
 ```shell

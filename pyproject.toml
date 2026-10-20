@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 audio = ["basic-pitch==0.4.0"]
 dev = ["pytest>=8,<10"]
+hub = ["huggingface_hub>=0.27,<2"]
 
 [project.scripts]
 midivolt = "midivolt.cli:main"
@@ -24,6 +25,7 @@ midivolt-bridge = "midivolt.bridge_cli:main"
 midivolt-tsov = "midivolt.tsov_cli:main"
 midivolt-review = "midivolt.review_cli:main"
 midivolt-model = "midivolt.model_cli:main"
+midivolt-hub = "midivolt.model_hub_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
