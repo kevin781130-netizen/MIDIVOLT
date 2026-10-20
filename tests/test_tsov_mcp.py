@@ -34,7 +34,7 @@ for line in sys.stdin:
             payload = json.dumps({'tool':tool, 'arguments':args,
                                   'diff':{'notes_added':2}})
             if tool == 'set_tempo':
-                payload += '\\n\\nWebUI co-existence guard notice'
+                payload += '\n\nWebUI co-existence guard notice'
             result = {'isError':False,
                       'content':[{'type':'text','text':payload}]}
     else:
