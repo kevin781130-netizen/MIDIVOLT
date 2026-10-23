@@ -84,7 +84,7 @@ def validate_manifest(data: object, mode: str = "commercial") -> list[str]:
             seen_ids.add(dataset_id)
 
         disposition = dataset.get("disposition")
-        if disposition not in DISPOSITIONS:
+        if not isinstance(disposition, str) or disposition not in DISPOSITIONS:
             errors.append(
                 f"{label}.disposition must be one of: {', '.join(sorted(DISPOSITIONS))}"
             )
