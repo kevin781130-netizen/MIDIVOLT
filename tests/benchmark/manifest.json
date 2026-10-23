@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0.0",
+  "project": "MIDIVOLT",
+  "purpose": "Reproducible audio-to-MIDI benchmark manifest",
+  "status": "empty_template",
+  "rules": {
+    "split_unit": "source_song",
+    "preserve_original_timeline": true,
+    "require_reference_midi": true,
+    "separate_synthetic_and_real_audio": true,
+    "license_review_required_before_download_or_redistribution": true,
+    "do_not_tune_on_test_set": true
+  },
+  "instrument_classes": [
+    "drums",
+    "bass",
+    "guitar",
+    "keys",
+    "vocal"
+  ],
+  "datasets": [],
+  "samples": [],
+  "candidate_engines": [
+    {
+      "engine_id": "spotify_basic_pitch",
+      "type": "local",
+      "status": "candidate",
+      "code_license": "Apache-2.0",
+      "weights_license_status": "verify_before_release",
+      "version": null,
+      "checkpoint_sha256": null
+    },
+    {
+      "engine_id": "klangio_api",
+      "type": "hosted_api",
+      "status": "candidate",
+      "code_license": "proprietary_service",
+      "commercial_terms_status": "review_required",
+      "version": null
+    },
+    {
+      "engine_id": "adt_str",
+      "type": "local",
+      "instrument_scope": [
+        "drums"
+      ],
+      "status": "research_candidate",
+      "code_license": "CC-BY-SA-4.0",
+      "checkpoint_license_status": "verify_before_release",
+      "version": null,
+      "checkpoint_sha256": null
+    }
+  ],
+  "sample_record_schema": {
+    "sample_id": "unique-stable-id",
+    "source_song_id": "grouping-key-to-prevent-split-leakage",
+    "split": "train|validation|test",
+    "audio_path": "relative/path/to/stem.wav",
+    "reference_midi_path": "relative/path/to/reference.mid",
+    "instrument_class": "drums|bass|guitar|keys|vocal",
+    "audio_domain": "synthetic|real_recording|unknown",
+    "duration_seconds": null,
+    "sample_rate_hz": null,
+    "channels": null,
+    "tempo_bpm": null,
+    "provenance_url": null,
+    "audio_license": "unreviewed",
+    "midi_or_annotation_license": "unreviewed",
+    "dataset_terms_review": "pending",
+    "notes": ""
+  },
+  "evaluation_defaults": {
+    "onset_tolerance_ms": [
+      50,
+      100
+    ],
+    "strict_note_onset_tolerance_ms": 50,
+    "strict_note_offset_tolerance": "max(50ms, 20% of reference note duration)",
+    "frame_hop_ms": 10,
+    "repetitions_local_engine": 3,
+    "latency_statistics": [
+      "median",
+      "p95"
+    ],
+    "report_raw_and_postprocessed_outputs": true
+  },
+  "results": []
+}
