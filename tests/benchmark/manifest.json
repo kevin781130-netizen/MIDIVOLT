@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "project": "MIDIVOLT",
   "purpose": "Reproducible audio-to-MIDI benchmark manifest",
-  "status": "empty_template",
+  "status": "dataset_registry_seeded",
   "rules": {
     "split_unit": "source_song",
     "preserve_original_timeline": true,
@@ -18,7 +18,176 @@
     "keys",
     "vocal"
   ],
-  "datasets": [],
+  "datasets": [
+    {
+      "dataset_id": "e_gmd_v1",
+      "name": "Expanded Groove MIDI Dataset v1.0.0",
+      "instrument_scope": [
+        "drums"
+      ],
+      "data_kind": "synthetic_rendered_audio_with_aligned_midi",
+      "official_url": "https://magenta.withgoogle.com/datasets/e-gmd",
+      "declared_license": "CC-BY-4.0",
+      "disposition": "conditional_commercial_candidate",
+      "intended_use": "benchmark",
+      "rights_review": "pending_exact_release_checksum_attribution_and_asset_provenance",
+      "source_note": "Synthetic baseline only; add a separately licensed real-recording drum set."
+    },
+    {
+      "dataset_id": "guitarset_v1_1",
+      "name": "GuitarSet v1.1.0",
+      "instrument_scope": [
+        "guitar"
+      ],
+      "data_kind": "real_guitar_audio_with_note_annotations",
+      "official_url": "https://guitarset.weebly.com/",
+      "version_url": "https://huggingface.co/datasets/jhartquist/guitarset",
+      "declared_license": "CC-BY-4.0",
+      "disposition": "conditional_commercial_candidate",
+      "intended_use": "benchmark",
+      "rights_review": "pending_exact_release_pin_attribution_and_asset_provenance",
+      "source_note": "Preserve source-song grouping across captures and styles."
+    },
+    {
+      "dataset_id": "slakh2100",
+      "name": "Slakh2100",
+      "instrument_scope": [
+        "drums",
+        "bass",
+        "guitar",
+        "keys",
+        "other"
+      ],
+      "data_kind": "synthetic_multitrack_audio_and_aligned_midi",
+      "official_url": "https://www.slakh.com/",
+      "conflicting_source_url": "https://huggingface.co/datasets/projectlosangeles/Slakh2100",
+      "declared_license": "conflicting_claims_CC-BY-4.0_vs_CC-BY-NC-SA-4.0",
+      "disposition": "blocked_pending_rights",
+      "intended_use": "none_until_cleared",
+      "rights_review": "resolve_canonical_release_and_underlying_audio_midi_rights"
+    },
+    {
+      "dataset_id": "musicnet",
+      "name": "MusicNet",
+      "instrument_scope": [
+        "multi_instrument_classical"
+      ],
+      "data_kind": "classical_audio_note_labels_and_reference_midi",
+      "official_url": "https://zenodo.org/records/5120004",
+      "declared_license": "exact_license_string_not_confirmed_from_record_metadata",
+      "disposition": "blocked_pending_rights",
+      "intended_use": "none_until_cleared",
+      "rights_review": "confirm_audio_midi_and_label_terms_separately"
+    },
+    {
+      "dataset_id": "urmp",
+      "name": "University of Rochester Multi-Modal Music Performance Dataset",
+      "instrument_scope": [
+        "strings",
+        "woodwinds",
+        "brass",
+        "multi_instrument"
+      ],
+      "data_kind": "real_isolated_instrument_audio_midi_scores_and_note_annotations",
+      "official_url": "https://labsites.rochester.edu/air/projects/URMP.html",
+      "declared_license": "not_confirmed_on_official_project_page",
+      "disposition": "blocked_pending_rights",
+      "intended_use": "none_until_cleared",
+      "rights_review": "request_written_commercial_permission"
+    },
+    {
+      "dataset_id": "maestro_v3",
+      "name": "MAESTRO v3.0.0",
+      "instrument_scope": [
+        "keys"
+      ],
+      "data_kind": "piano_audio_aligned_midi",
+      "official_url": "https://magenta.withgoogle.com/datasets/maestro",
+      "declared_license": "CC-BY-NC-SA-4.0",
+      "disposition": "research_only_permission_required",
+      "intended_use": "research_only",
+      "rights_review": "commercial_use_requires_separate_permission"
+    },
+    {
+      "dataset_id": "maps",
+      "name": "MAPS Database",
+      "instrument_scope": [
+        "keys"
+      ],
+      "data_kind": "piano_audio_and_reference_midi",
+      "official_url": "https://adasp.telecom-paris.fr/resources/2010-07-08-maps-database/",
+      "declared_license": "CC-BY-NC-SA-2.0-France",
+      "disposition": "research_only_permission_required",
+      "intended_use": "research_only",
+      "rights_review": "commercial_use_requires_separate_permission"
+    },
+    {
+      "dataset_id": "idmt_smt_drums",
+      "name": "IDMT-SMT-Drums",
+      "instrument_scope": [
+        "drums"
+      ],
+      "data_kind": "drum_audio_with_onset_annotations",
+      "official_url": "https://www.idmt.fraunhofer.de/en/publications/datasets/drums.html",
+      "declared_license": "CC-BY-NC-ND-4.0",
+      "disposition": "research_only_permission_required",
+      "intended_use": "research_only",
+      "rights_review": "request_permission_for_commercial_development"
+    },
+    {
+      "dataset_id": "idmt_smt_bass",
+      "name": "IDMT-SMT-Bass",
+      "instrument_scope": [
+        "bass"
+      ],
+      "data_kind": "isolated_bass_note_audio",
+      "official_url": "https://www.idmt.fraunhofer.de/en/publications/datasets/bass.html",
+      "declared_license": "CC-BY-NC-ND-4.0",
+      "disposition": "research_only_permission_required",
+      "intended_use": "research_only",
+      "rights_review": "request_permission_for_commercial_development"
+    },
+    {
+      "dataset_id": "idmt_smt_bass_single_track",
+      "name": "IDMT-SMT-Bass-Single-Track",
+      "instrument_scope": [
+        "bass"
+      ],
+      "data_kind": "bass_lines_with_note_and_style_annotations",
+      "official_url": "https://www.idmt.fraunhofer.de/en/publications/datasets/bass_lines.html",
+      "declared_license": "CC-BY-NC-ND-4.0",
+      "disposition": "research_only_permission_required",
+      "intended_use": "research_only",
+      "rights_review": "request_permission_for_commercial_development"
+    },
+    {
+      "dataset_id": "mdb_drums",
+      "name": "MDB Drums",
+      "instrument_scope": [
+        "drums"
+      ],
+      "data_kind": "real_music_drum_audio_and_annotations",
+      "official_url": "https://github.com/CarlSouthall/MDBDrums",
+      "declared_license": "CC-BY-NC-SA-4.0",
+      "disposition": "research_only_permission_required",
+      "intended_use": "research_only",
+      "rights_review": "commercial_use_requires_separate_permission"
+    },
+    {
+      "dataset_id": "mir_1k",
+      "name": "MIR-1K",
+      "instrument_scope": [
+        "vocal"
+      ],
+      "data_kind": "singing_voice_pitch_contours_and_vocal_segment_annotations",
+      "official_url": "https://zenodo.org/records/3532216",
+      "declared_license": "unknown_access_restricted",
+      "disposition": "blocked_pending_rights",
+      "intended_use": "none_until_cleared",
+      "rights_review": "contact_author_and_confirm_commercial_rights",
+      "source_note": "Pitch contours are not equivalent to complete note-event MIDI."
+    }
+  ],
   "samples": [],
   "candidate_engines": [
     {
@@ -84,5 +253,18 @@
     ],
     "report_raw_and_postprocessed_outputs": true
   },
-  "results": []
+  "results": [],
+  "dataset_record_schema": {
+    "dataset_id": "stable-unique-id",
+    "name": "dataset name and pinned version",
+    "instrument_scope": [
+      "drums|bass|guitar|keys|vocal|multi_instrument"
+    ],
+    "data_kind": "audio/annotation/MIDI relationship",
+    "official_url": "canonical source URL",
+    "declared_license": "exact license identifier or explicit uncertainty",
+    "disposition": "conditional_commercial_candidate|research_only_permission_required|blocked_pending_rights",
+    "intended_use": "benchmark|training|research_only|none_until_cleared",
+    "rights_review": "evidence-backed review status"
+  }
 }
