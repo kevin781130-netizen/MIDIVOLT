@@ -8,7 +8,8 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from dataclasses import asdict, dataclass
+from bisect import bisect_left, bisect_right
+from dataclasses import dataclass
 from pathlib import Path
 
 import pretty_midi
@@ -47,15 +48,29 @@ def matching(
     A predicted note cannot match two reference notes. For strict notes the
     offset tolerance is max(50 ms, 20% of the ground-truth note duration).
     """
+    # Index predicted events by pitch and onset so long songs do not incur
+    # an all-pairs O(reference_notes * predicted_notes) candidate search.
+    by_pitch: dict[int, list[tuple[float, int]]] = {}
+    for index, pred in enumerate(predicted):
+        by_pitch.setdefault(pred.pitch, []).append((pred.start, index))
+    starts_by_pitch = {
+        pitch: [onset for onset, _ in entries]
+        for pitch, entries in by_pitch.items()
+    }
+
     links: list[list[int]] = []
     for ref in reference:
-        candidates = []
-        for i, pred in enumerate(predicted):
-            if pred.pitch != ref.pitch or abs(pred.start - ref.start) > onset_tolerance:
-                continue
-            if require_offset and abs(pred.end - ref.end) > max(0.05, 0.2 * (ref.end - ref.start)):
-                continue
-            candidates.append(i)
+        entries = by_pitch.get(ref.pitch, [])
+        starts = starts_by_pitch.get(ref.pitch, [])
+        lo = bisect_left(starts, ref.start - onset_tolerance)
+        hi = bisect_right(starts, ref.start + onset_tolerance)
+        candidates = [
+            entries[j][1]
+            for j in range(lo, hi)
+            if not require_offset or
+            abs(predicted[entries[j][1]].end - ref.end)
+            <= max(0.05, 0.2 * (ref.end - ref.start))
+        ]
         candidates.sort(key=lambda i: (
             abs(predicted[i].start - ref.start),
             abs(predicted[i].end - ref.end),
@@ -154,6 +169,15 @@ def evaluate(
         )
         for p in extras
     )
+    fragment_candidates = sum(
+        any(
+            guesses[p].pitch == truth[r].pitch
+            and truth[r].start + tol < guesses[p].start <= truth[r].end + tol
+            and guesses[p].end <= truth[r].end + 0.2
+            for r in found_truth
+        )
+        for p in extras
+    )
     return {
         "reference_notes": len(truth),
         "predicted_notes": len(guesses),
@@ -172,6 +196,7 @@ def evaluate(
             "unmatched_reference_notes": [_event_json(truth[i]) for i in missed],
             "octave_error_candidates": octave_candidates,
             "duplicate_onset_candidates": duplicate_candidates,
+            "split_tail_fragment_candidates": fragment_candidates,
         },
         "settings": {
             "onset_tolerance_ms": onset_tolerance_ms,
