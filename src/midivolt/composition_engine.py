@@ -10,6 +10,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from math import isfinite
+from numbers import Integral
 
 import pretty_midi
 
@@ -88,7 +89,9 @@ def compose_candidate(
 
     candidate = deepcopy(baseline)
     for index, generated in enumerate(rendered.instruments):
-        if type(generated.program) is not int or not 0 <= generated.program <= 127:
+        if (isinstance(generated.program, bool) or
+                not isinstance(generated.program, Integral) or
+                not 0 <= generated.program <= 127):
             raise ValueError("Generated track has an invalid MIDI program.")
         if len(generated.name) > 128:
             raise ValueError("Generated track name is too long.")
