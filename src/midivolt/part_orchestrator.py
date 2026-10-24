@@ -137,6 +137,27 @@ def compose_strict_parts(
     if not callable(getattr(generator, "generate", None)):
         raise TypeError("generator must implement generate().")
 
+    # Give the model the *same explicit harmonic constraints* as the checker.
+    # Refuse overlong role prompts before starting any GPU inference.
+    role_instructions = {}
+    for part in parts:
+        instruction = part["instruction"]
+        if harmony_context is not None:
+            constraints = []
+            if harmony_context["key"]:
+                constraints.append(f"Declared key: {harmony_context['key']}.")
+            if harmony_context["chords"]:
+                symbols = " ".join(chord["symbol"] for chord in harmony_context["chords"])
+                constraints.append(
+                    f"Chord progression from beat 0: {symbols}; "
+                    f"{harmony_context['beats_per_chord']:g} quarter-note beats per chord; "
+                    "do not loop unspecified chords."
+                )
+            instruction += " " + " ".join(constraints)
+        if len(instruction.strip()) > 2048:
+            raise ValueError(f"{part['role']}: model instruction exceeds 2048 characters.")
+        role_instructions[part["role"]] = instruction
+
     combined = deepcopy(source)
     remaining = max_total_notes
     quality_attempts: list[dict] = []
@@ -155,7 +176,7 @@ def compose_strict_parts(
                 source,
                 generator,
                 CompositionRequest(
-                    prompt=part["instruction"],
+                    prompt=role_instructions[role],
                     locked_tracks=locked_tracks,
                     seed=attempt_seed,
                     max_new_tracks=1,
