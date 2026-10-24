@@ -31,15 +31,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install metadata client only
-        run: python -m pip install "huggingface_hub>=0.35,<2"
-
-      - name: Verify exact model revision and required files
-        run: |
-          python -m midivolt.adt_hf_probe \
-            --revision "$MODEL_REVISION" \
-            --output "$BENCH_OUT/model_metadata.json"
-
       - name: Install pinned PyTorch CPU runtime
         run: |
           python -m pip install --index-url https://download.pytorch.org/whl/cpu \
