@@ -40,7 +40,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-structure-score", type=float, default=0.75,
                         help="Strict mode: 0..1 symbolic-structure gate, not an aesthetic score")
     parser.add_argument("--retry-per-part", type=int, default=1,
-                        help="Strict mode: retry failed structure/GM checks 0..3 times")
+                        help="Strict mode: retry failed structure/GM/harmony checks 0..3 times")
+    parser.add_argument("--harmonic-key", help="Explicit key, e.g. C major or A minor")
+    parser.add_argument("--harmonic-chords", help="Explicit progression, e.g. Cmaj7 Am7 Dm7 G7")
+    parser.add_argument("--beats-per-chord", type=float, default=4.0,
+                        help="Quarter-note beats for each chord (default 4; no implicit looping)")
+    parser.add_argument("--min-harmony-score", type=float, default=None,
+                        help="Optional opt-in symbolic harmony gate 0..1; requires key or chords")
     return parser
 
 
@@ -83,12 +89,19 @@ def main(argv: list[str] | None = None) -> int:
                 max_total_notes=args.max_new_notes,
                 minimum_structure_score=args.min_structure_score,
                 quality_retries=args.retry_per_part,
+                harmonic_key=args.harmonic_key,
+                harmonic_chords=args.harmonic_chords,
+                beats_per_chord=args.beats_per_chord,
+                minimum_harmony_score=args.min_harmony_score,
             )
         else:
             if args.program:
                 raise ValueError("--program requires --strict-parts.")
             if args.retry_per_part != 1 or args.min_structure_score != 0.75:
                 raise ValueError("Quality/retry flags require --strict-parts.")
+            if (args.harmonic_key is not None or args.harmonic_chords is not None
+                    or args.beats_per_chord != 4.0 or args.min_harmony_score is not None):
+                raise ValueError("Harmony flags require --strict-parts.")
             request = CompositionRequest(
                 prompt=args.prompt,
                 locked_tracks=tuple(args.lock),
