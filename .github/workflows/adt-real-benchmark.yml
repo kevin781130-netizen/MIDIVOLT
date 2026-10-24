@@ -13,14 +13,14 @@ permissions:
 
 jobs:
   adt-real-research:
-    if: \${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[adt-real-once]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[adt-real-once]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
       MODEL_REVISION: a33c5c6b191a4ca1e0f6dc22140947485eb36ce8
       SOURCE_REVISION: 77dbef225e7029478ebfb916f20c7a00274f0f12
-      BENCH_OUT: \${{ runner.temp }}/midivolt-adt-benchmark
-      ADT_ROOT: \${{ runner.temp }}/ADT_STR
+      BENCH_OUT: ${{ runner.temp }}/midivolt-adt-benchmark
+      ADT_ROOT: ${{ runner.temp }}/ADT_STR
       HF_HUB_DISABLE_TELEMETRY: '1'
     steps:
       - name: Check out MIDIVOLT
@@ -73,6 +73,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: midivolt-adt-str-real-model-benchmark
-          path: \${{ runner.temp }}/midivolt-adt-benchmark/
+          path: ${{ runner.temp }}/midivolt-adt-benchmark/
           if-no-files-found: warn
           retention-days: 7
