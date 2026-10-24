@@ -7,12 +7,14 @@ No audio models/weights, network clients, or DAW code are bundled here.
 from __future__ import annotations
 
 from copy import deepcopy
+from math import isfinite
 from typing import Mapping
 
 import pretty_midi
 
 from .composition_engine import CompositionRequest, compose_candidate
 from .composition_planner import make_composition_plan
+from .part_quality import evaluate_part_structure
 from .review_engine import inspect_arrangement
 
 # GM program numbers are zero-based. Ambiguous roles require an explicit
@@ -85,6 +87,8 @@ def compose_strict_parts(
     seed: int | None = None,
     max_new_tracks: int = 16,
     max_total_notes: int = 20000,
+    minimum_structure_score: float = 0.75,
+    quality_retries: int = 0,
 ) -> tuple[pretty_midi.PrettyMIDI, dict, dict]:
     """Generate one validated MIDI track per explicitly requested instrument.
 
@@ -100,6 +104,10 @@ def compose_strict_parts(
         raise ValueError("max_total_notes must be between 1 and 100000.")
     if seed is not None and (type(seed) is not int or not 0 <= seed < 2**31):
         raise ValueError("Seed must be a nonnegative 31-bit integer.")
+    if type(minimum_structure_score) not in (float, int) or not isfinite(minimum_structure_score) or not 0 <= minimum_structure_score <= 1:
+        raise ValueError("minimum_structure_score must be finite and within 0..1.")
+    if type(quality_retries) is not int or not 0 <= quality_retries <= 3:
+        raise ValueError("quality_retries must be between 0 and 3.")
     plan = make_composition_plan(
         prompt, source_track_count=len(source.instruments), locked_tracks=locked_tracks
     )
@@ -107,46 +115,86 @@ def compose_strict_parts(
     if len(parts) > max_new_tracks:
         raise ValueError("Requested instrument count exceeds max_new_tracks.")
     expected = _expected_programs(parts, program_assignments or {})
-    if seed is not None and seed + len(parts) - 1 >= 2**31:
+    attempts_per_part = quality_retries + 1
+    if seed is not None and seed + len(parts) * attempts_per_part - 1 >= 2**31:
         raise ValueError("Per-part seeds exceed supported 31-bit range.")
     if not callable(getattr(generator, "generate", None)):
         raise TypeError("generator must implement generate().")
 
     combined = deepcopy(source)
     remaining = max_total_notes
+    quality_attempts: list[dict] = []
     for idx, part in enumerate(parts):
         role = part["role"]
         if remaining <= 0:
             raise ValueError("Total composition note budget exceeded.")
-        one, _ = compose_candidate(
-            source,
-            generator,
-            CompositionRequest(
-                prompt=part["instruction"],
-                locked_tracks=locked_tracks,
-                seed=seed + idx if seed is not None else None,
-                max_new_tracks=1,
-                max_new_notes=remaining,
-            ),
-        )
-        # compose_candidate appends to a copy of the unchanged original.
-        new_tracks = one.instruments[len(source.instruments):]
-        if len(new_tracks) != 1:
-            raise ValueError(f"{role}: model returned multiple/zero tracks.")
-        track = new_tracks[0]
-        if not track.notes:
-            raise ValueError(f"{role}: model returned an empty part.")
-        if bool(track.is_drum) != bool(part["is_drum"]):
-            raise ValueError(f"{role}: drum-channel classification mismatch.")
-        expected_gm = expected[role]
-        if not part["is_drum"] and track.program != expected_gm:
-            raise ValueError(f"{role}: expected GM {expected_gm}, got {track.program}.")
-        if part["is_drum"] and any(not 35 <= n.pitch <= 81 for n in track.notes):
-            raise ValueError("drums: note outside the General MIDI percussion range 35..81.")
-        remaining -= len(track.notes)
-        track.name = f"MIDIVOLT AI | {idx + 1:02d} {part['label']}"
-        combined.instruments.append(track)
 
+        for attempt in range(attempts_per_part):
+            # Seeds are deterministic and unique across both roles and retries.
+            attempt_seed = (
+                seed + idx * attempts_per_part + attempt
+                if seed is not None else None
+            )
+            one, _ = compose_candidate(
+                source,
+                generator,
+                CompositionRequest(
+                    prompt=part["instruction"],
+                    locked_tracks=locked_tracks,
+                    seed=attempt_seed,
+                    max_new_tracks=1,
+                    max_new_notes=remaining,
+                ),
+            )
+            new_tracks = one.instruments[len(source.instruments):]
+            if len(new_tracks) != 1:
+                raise ValueError(f"{role}: model returned multiple/zero tracks.")
+            track = new_tracks[0]
+            if not track.notes:
+                raise ValueError(f"{role}: model returned an empty part.")
+
+            reason = ""
+            if bool(track.is_drum) != bool(part["is_drum"]):
+                reason = f"{role}: drum-channel classification mismatch."
+            elif not part["is_drum"] and track.program != expected[role]:
+                reason = f"{role}: expected GM {expected[role]}, got {track.program}."
+            elif part["is_drum"] and any(not 35 <= n.pitch <= 81 for n in track.notes):
+                reason = "drums: note outside the General MIDI percussion range 35..81."
+
+            metrics = None if reason else evaluate_part_structure(source, track, role)
+            if metrics is not None and metrics["score"] < minimum_structure_score:
+                reason = (
+                    f"{role}: MIDI structural score {metrics['score']:.4f} "
+                    f"below threshold {minimum_structure_score:.4f} "
+                    f"({', '.join(metrics['warnings']) or 'no classified warning'})."
+                )
+            quality_attempts.append({
+                "role": role,
+                "attempt": attempt + 1,
+                "seed": attempt_seed,
+                "accepted": not reason,
+                "metrics": metrics,
+                "reason": reason or None,
+            })
+            if reason:
+                if attempt < quality_retries:
+                    continue
+                raise ValueError(
+                    f"{reason} Rejected after {attempt + 1} attempt(s); "
+                    "no partial candidate published."
+                )
+
+            remaining -= len(track.notes)
+            track.name = f"MIDIVOLT AI | {idx + 1:02d} {part['label']}"
+            combined.instruments.append(track)
+            break
+
+    plan["quality_policy"] = {
+        "metric_type": "symbolic_structure_only",
+        "minimum_structure_score": float(minimum_structure_score),
+        "quality_retries": quality_retries,
+    }
+    plan["quality_attempts"] = quality_attempts
     report = inspect_arrangement(source, combined, list(locked_tracks))
     if report["notes_removed"] or report["notes_added"] != max_total_notes - remaining:
         raise ValueError("Unexpected source note change or new MIDI event count.")
