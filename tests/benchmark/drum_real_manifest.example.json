@@ -1,0 +1,33 @@
+{
+  "schema_version": "1",
+  "description": "Add rights-reviewed, time-aligned, human drum WAV and GM MIDI pairs. Empty by design.",
+  "samples": [],
+  "sample_fields_example": {
+    "sample_id": "recording_001",
+    "source_song_id": "song_001",
+    "performance_id": "take_001",
+    "split": "test",
+    "audio_domain": "real_recording",
+    "audio_path": "audio/song_001_drums.wav",
+    "reference_midi_path": "truth/song_001_drums.mid",
+    "audio_sha256": "<sha256 of actual WAV>",
+    "midi_sha256": "<sha256 of actual MIDI>",
+    "provenance_url": "https://example.org/provenance",
+    "technique_tags": [
+      "ghost_notes",
+      "double_kick",
+      "ride",
+      "crash",
+      "toms"
+    ],
+    "rights": {
+      "status": "pending",
+      "commercial_benchmark_allowed": false,
+      "audio_license": "<exact audio license or ownership evidence>",
+      "midi_license": "<exact MIDI/annotation license>",
+      "evidence_url": "https://example.org/permissions",
+      "reviewer": "<actual reviewer>",
+      "attribution": "<source-required attribution>"
+    }
+  }
+}
