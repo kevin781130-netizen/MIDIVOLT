@@ -78,3 +78,57 @@ def test_strict_cli_preflight_rejects_unknown_program(tmp_path, monkeypatch):
     ]
     assert compose_cli.main(argv) == 2
     assert not candidate.exists() and not manifest.exists() and not mock.calls
+
+
+def test_explicit_harmony_cli_includes_generation_context_and_review(tmp_path, monkeypatch, capsys):
+    src = tmp_path / "melody.mid"
+    original = pretty_midi.PrettyMIDI(initial_tempo=60)
+    part = pretty_midi.Instrument(73, name="Original")
+    part.notes.append(pretty_midi.Note(80, 60, 0, 1))
+    original.instruments.append(part)
+    write_midi(original, src)
+    provider = MockProvider()
+    monkeypatch.setattr(compose_cli, "LocalText2MidiProvider", lambda **kwargs: provider)
+    candidate, manifest = tmp_path / "new.mid", tmp_path / "new.json"
+    args = [
+        "--strict-parts", "--source", str(src), "--prompt", "鋼琴",
+        "--python", "unused", "--checkout", "unused", "--checkpoint", "unused",
+        "--vocab", "unused", "--t5-dir", "unused",
+        "--candidate", str(candidate), "--manifest", str(manifest),
+        "--lock", "0", "--harmonic-key", "C major",
+        "--min-harmony-score", "0.8", "--retry-per-part", "0",
+    ]
+    assert compose_cli.main(args) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert "Declared key: C major" in provider.calls[0][0]
+    attempts = result["composition_plan"]["quality_attempts"]
+    assert attempts[0]["accepted"]
+    assert attempts[0]["harmony_metrics"]["score"] == 1.0
+    assert result["composition_plan"]["quality_policy"]["harmony_gating_enabled"]
+    assert result["approved"] is False
+    assert candidate.exists() and manifest.exists()
+    _, diff = check_proposal(manifest)
+    assert diff["notes_added"] == 1
+
+
+def test_harmony_cli_is_strict_only(tmp_path, monkeypatch):
+    src = tmp_path / "source.mid"
+    original = pretty_midi.PrettyMIDI(initial_tempo=60)
+    part = pretty_midi.Instrument(73)
+    part.notes.append(pretty_midi.Note(80, 60, 0, 1))
+    original.instruments.append(part)
+    write_midi(original, src)
+    provider = MockProvider()
+    monkeypatch.setattr(compose_cli, "LocalText2MidiProvider", lambda **kwargs: provider)
+    candidate = tmp_path / "candidate.mid"
+    manifest = tmp_path / "plan.json"
+    args = [
+        "--source", str(src), "--prompt", "鋼琴", "--python", "unused",
+        "--checkout", "unused", "--checkpoint", "unused", "--vocab", "unused",
+        "--t5-dir", "unused", "--candidate", str(candidate),
+        "--manifest", str(manifest), "--lock", "0",
+        "--harmonic-key", "C major",
+    ]
+    assert compose_cli.main(args) == 2
+    assert not candidate.exists() and not manifest.exists()
+    assert not provider.calls
