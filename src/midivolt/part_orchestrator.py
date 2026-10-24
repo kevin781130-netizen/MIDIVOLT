@@ -15,6 +15,7 @@ import pretty_midi
 from .composition_engine import CompositionRequest, compose_candidate
 from .composition_planner import make_composition_plan
 from .part_quality import evaluate_part_structure
+from .harmony_quality import prepare_harmonic_context, evaluate_part_harmony
 from .review_engine import inspect_arrangement
 
 # GM program numbers are zero-based. Ambiguous roles require an explicit
@@ -89,6 +90,10 @@ def compose_strict_parts(
     max_total_notes: int = 20000,
     minimum_structure_score: float = 0.75,
     quality_retries: int = 0,
+    harmonic_key: str | None = None,
+    harmonic_chords: str | None = None,
+    beats_per_chord: float = 4.0,
+    minimum_harmony_score: float | None = None,
 ) -> tuple[pretty_midi.PrettyMIDI, dict, dict]:
     """Generate one validated MIDI track per explicitly requested instrument.
 
@@ -108,6 +113,17 @@ def compose_strict_parts(
         raise ValueError("minimum_structure_score must be finite and within 0..1.")
     if type(quality_retries) is not int or not 0 <= quality_retries <= 3:
         raise ValueError("quality_retries must be between 0 and 3.")
+    if minimum_harmony_score is not None and (
+        type(minimum_harmony_score) not in (int, float)
+        or not isfinite(minimum_harmony_score)
+        or not 0 <= minimum_harmony_score <= 1
+    ):
+        raise ValueError("minimum_harmony_score must be finite in 0..1.")
+    harmony_context = prepare_harmonic_context(
+        key=harmonic_key, chords=harmonic_chords, beats_per_chord=beats_per_chord
+    )
+    if minimum_harmony_score is not None and harmony_context is None:
+        raise ValueError("Harmony threshold requires explicit --harmonic-key or --harmonic-chords.")
     plan = make_composition_plan(
         prompt, source_track_count=len(source.instruments), locked_tracks=locked_tracks
     )
@@ -168,12 +184,26 @@ def compose_strict_parts(
                     f"below threshold {minimum_structure_score:.4f} "
                     f"({', '.join(metrics['warnings']) or 'no classified warning'})."
                 )
+            harmonic_metrics = None
+            if not reason and harmony_context is not None:
+                harmonic_metrics = evaluate_part_harmony(
+                    source, track, role, harmony_context,
+                    reference_tracks=locked_tracks,
+                )
+                if (minimum_harmony_score is not None
+                        and harmonic_metrics["score"] is not None
+                        and harmonic_metrics["score"] < minimum_harmony_score):
+                    reason = (
+                        f"{role}: symbolic harmony score {harmonic_metrics['score']:.4f} "
+                        f"below threshold {minimum_harmony_score:.4f}."
+                    )
             quality_attempts.append({
                 "role": role,
                 "attempt": attempt + 1,
                 "seed": attempt_seed,
                 "accepted": not reason,
                 "metrics": metrics,
+                "harmony_metrics": harmonic_metrics,
                 "reason": reason or None,
             })
             if reason:
@@ -193,6 +223,11 @@ def compose_strict_parts(
         "metric_type": "symbolic_structure_only",
         "minimum_structure_score": float(minimum_structure_score),
         "quality_retries": quality_retries,
+        "harmony_key": harmony_context["key"] if harmony_context else None,
+        "harmony_chords": [c["symbol"] for c in harmony_context["chords"]] if harmony_context else [],
+        "beats_per_chord": harmony_context["beats_per_chord"] if harmony_context else None,
+        "minimum_harmony_score": minimum_harmony_score,
+        "harmony_gating_enabled": minimum_harmony_score is not None,
     }
     plan["quality_attempts"] = quality_attempts
     report = inspect_arrangement(source, combined, list(locked_tracks))
