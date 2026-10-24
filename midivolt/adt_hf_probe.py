@@ -8,7 +8,6 @@ import argparse
 import json
 from pathlib import Path
 
-from huggingface_hub import HfApi
 
 REPO_ID = "Pierfrancesco/adt-str"
 VARIANT = "setting-tau-0.8"
@@ -21,7 +20,9 @@ REQUIRED = {
 def probe_model(revision: str, *, client=None) -> dict:
     if len(revision) != 40 or any(char not in "0123456789abcdef" for char in revision.lower()):
         raise ValueError("revision must be an explicit 40-character commit SHA")
-    client = client or HfApi()
+    if client is None:
+        from huggingface_hub import HfApi
+        client = HfApi()
     info = client.model_info(REPO_ID, revision=revision, files_metadata=True)
     filenames = sorted(s.rfilename for s in info.siblings)
     missing = sorted(REQUIRED.difference(filenames))
