@@ -144,6 +144,10 @@ def transcribe_stems(
     minimum_note_ms: float = 127.7,
     stem_type: str | None = None,
     drum_engine: str = "off",
+    adt_root: Path | None = None,
+    adt_checkpoint: Path | None = None,
+    adt_python: str | Path | None = None,
+    research_only: bool = False,
     overwrite: bool = False,
     predictor: Callable[[Path, float, float, float, float], pretty_midi.PrettyMIDI] | None = None,
 ) -> dict:
@@ -153,11 +157,18 @@ def transcribe_stems(
         raise ValueError("Thresholds must be strictly between 0 and 1.")
     if minimum_note_ms <= 0:
         raise ValueError("--min-note-ms must be positive.")
-    if drum_engine not in {"off", "dsp"}:
-        raise ValueError("--drum-engine must be off or dsp.")
+    if drum_engine not in {"off", "dsp", "adt-str"}:
+        raise ValueError("--drum-engine must be off, dsp or adt-str.")
+    if drum_engine == "adt-str":
+        if not research_only:
+            raise PermissionError(
+                "ADT_STR requires --research-only and is not commercially cleared."
+            )
+        if adt_root is None or adt_checkpoint is None:
+            raise ValueError("ADT_STR requires --adt-root and --adt-checkpoint.")
 
     input_path, output_dir = Path(input_path), Path(output_dir)
-    stems, skipped = discover(input_path, stem_type, drums_enabled=(drum_engine == "dsp"))
+    stems, skipped = discover(input_path, stem_type, drums_enabled=(drum_engine != "off"))
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs = [output_dir / (s.path.stem + ".mid") for s in stems]
     combined_path = output_dir / "MIDIVOLT_multitrack.mid"
@@ -181,8 +192,16 @@ def transcribe_stems(
             t0 = time.perf_counter()
             diagnostics = None
             if stem.kind == "drums":
-                from midivolt.drums import transcribe_drum_wav
-                source, diagnostics = transcribe_drum_wav(stem.path, tempo=tempo)
+                if drum_engine == "dsp":
+                    from midivolt.drums import transcribe_drum_wav
+                    source, diagnostics = transcribe_drum_wav(stem.path, tempo=tempo)
+                else:
+                    from midivolt.adt_str import transcribe_adt_str
+                    source, diagnostics = transcribe_adt_str(
+                        stem.path, tempo=tempo,
+                        repo_root=adt_root, checkpoint=adt_checkpoint,
+                        python_executable=adt_python, research_only=research_only,
+                    )
             else:
                 source = run(stem.path, tempo, onset, frame, minimum_note_ms)
             if not isinstance(source, pretty_midi.PrettyMIDI):
@@ -198,13 +217,17 @@ def transcribe_stems(
                 "midi_file": stem.path.stem + ".mid",
                 "track_name": track.name,
                 "note_count": len(track.notes),
-                "engine": "drum_dsp_v1" if stem.kind == "drums" else "spotify_basic_pitch",
+                "engine": (
+                    "adt_str" if drum_engine == "adt-str" else "drum_dsp_v1"
+                ) if stem.kind == "drums" else "spotify_basic_pitch",
                 "drum_diagnostics": diagnostics,
                 "inference_seconds": round(time.perf_counter() - t0, 3),
             })
         combined.write(str(staging / combined_path.name))
         report = {
-            "engine": "spotify_basic_pitch_plus_drum_dsp" if any(s.kind == "drums" for s in stems) and run is not None else ("drum_dsp_v1" if run is None else "spotify_basic_pitch"),
+            "engine": (
+                "+".join(sorted(set(record["engine"] for record in records)))
+            ),
             "mode": "unquantized_seconds_on_original_wav_timeline",
             "tempo_bpm_midi_grid_only": tempo,
             "parameters": {
@@ -217,7 +240,7 @@ def transcribe_stems(
             "total_seconds": round(time.perf_counter() - started, 3),
             "multitrack_file": combined_path.name,
             "warning": "Baseline only: not instrument separation or guaranteed note accuracy. "
-                       "Drums require --drum-engine dsp; only kick/snare/closed-hat supported. "
+                       "Drum DSP supports kick/snare/closed-hat only; ADT_STR is research-only. "
                        "WAVs must already have synchronized start times.",
         }
         (staging / report_path.name).write_text(
@@ -233,7 +256,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input", type=Path, required=True, help="single WAV or folder with stems")
     parser.add_argument("--output", type=Path, required=True, help="directory for MIDI and report")
     parser.add_argument("--stem-type", choices=tuple(GM_PROGRAM) + ("drums",), help="override filename for a single WAV")
-    parser.add_argument("--drum-engine", choices=("off", "dsp"), default="off", help="opt-in kick/snare/hat detection; no pretrained models")
+    parser.add_argument("--drum-engine", choices=("off", "dsp", "adt-str"), default="off",
+                        help="DSP baseline or optional experimental ADT_STR")
+    parser.add_argument("--adt-root", type=Path, help="trusted local ADT_STR source checkout")
+    parser.add_argument("--adt-checkpoint", type=Path, help="local ADT_STR checkpoint directory")
+    parser.add_argument("--adt-python", help="Python executable in ADT_STR virtual environment")
+    parser.add_argument("--research-only", action="store_true",
+                        help="explicitly allow experimental ADT_STR; never grants commercial clearance")
     parser.add_argument("--tempo", type=float, default=120.0, help="MIDI grid BPM; does not quantize notes")
     parser.add_argument("--onset-threshold", type=float, default=0.5)
     parser.add_argument("--frame-threshold", type=float, default=0.3)
@@ -249,9 +278,13 @@ def main(argv: list[str] | None = None) -> int:
             minimum_note_ms=args.min_note_ms,
             stem_type=args.stem_type,
             drum_engine=args.drum_engine,
+            adt_root=args.adt_root,
+            adt_checkpoint=args.adt_checkpoint,
+            adt_python=args.adt_python,
+            research_only=args.research_only,
             overwrite=args.overwrite,
         )
-    except (ValueError, OSError, RuntimeError, TypeError) as exc:
+    except (ValueError, OSError, RuntimeError, TypeError, PermissionError) as exc:
         print(f"MIDIVOLT ERROR: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
