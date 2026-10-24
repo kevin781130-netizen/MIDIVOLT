@@ -1,0 +1,58 @@
+name: MIDIVOLT Benchmark Safety
+
+on:
+  push:
+    branches:
+      - main
+      - feat/benchmark-foundation
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-safety-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-checks:
+    name: Inventory and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate dataset inventory structure
+        run: python tests/benchmark/validate_manifest.py --mode inventory
+
+      - name: Run validator unit tests
+        run: python -m unittest discover -s tests/benchmark -p 'test_*.py' -v
+
+  commercial-release-gate:
+    name: Strict commercial clearance
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
+    needs: benchmark-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Refuse unapproved datasets in commercial release
+        run: python tests/benchmark/validate_manifest.py --mode commercial
