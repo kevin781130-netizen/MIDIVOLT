@@ -16,8 +16,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-audio = ["basic-pitch==0.4.0"]
-dev = ["pytest>=8,<10"]
+audio = ["basic-pitch==0.4.0", "numpy>=1.23.5,<2", "scipy>=1.10,<2"]
+dev = ["pytest>=8,<10", "numpy>=1.23.5,<2", "scipy>=1.10,<2"]
 hub = ["huggingface_hub>=0.27,<2"]
 
 [project.scripts]
@@ -30,6 +30,8 @@ midivolt-hub = "midivolt.model_hub_cli:main"
 midivolt-env = "midivolt.environment_cli:main"
 midivolt-accept = "midivolt.acceptance_cli:main"
 midivolt-cubase = "midivolt.cubase_cli:main"
+midivolt-transcribe = "midivolt.transcribe:main"
+midivolt-evaluate = "midivolt.evaluate:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
