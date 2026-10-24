@@ -80,7 +80,7 @@ def discover(input_path: Path, forced_type: str | None = None, *, drums_enabled:
     for path in files:
         kind = forced_type or detect_kind(path.name)
         if kind == "drums" and not drums_enabled:
-            skipped.append({"file": path.name, "reason": "drums_disabled_pass_drum_engine_dsp"})
+            skipped.append({"file": path.name, "reason": "drums_need_dedicated_engine"})
         elif kind is None:
             skipped.append({"file": path.name, "reason": "unrecognized_or_ambiguous_stem_name"})
         else:
