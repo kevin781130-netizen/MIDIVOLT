@@ -20,7 +20,12 @@ from pathlib import Path
 
 import pretty_midi
 
-from midivolt.adt_hf_probe import REPO_ID, VARIANT, probe_model
+from midivolt.adt_hf_probe import REPO_ID, VARIANT
+
+# Confirmed from official Hugging Face model metadata by a completed GitHub
+# Actions preflight on 2026-10-24 (workflow run 40094493713).
+OFFICIALLY_PROBED_MODEL_REVISION = "a33c5c6b191a4ca1e0f6dc22140947485eb36ce8"
+WEIGHTS_SHA256 = "f94d1773d929166e0a3f63d305975aa6667512f8a71d7706872e1f8b23ca930b"
 from midivolt.compare_drums import compare
 from midivolt.drums import transcribe_drum_wav
 
@@ -59,7 +64,7 @@ def run_benchmark(
 ) -> dict:
     import numpy as np
     import torch
-    from huggingface_hub import snapshot_download
+    from huggingface_hub import hf_hub_download
     from scipy.io import wavfile
 
     root = Path(upstream_root).resolve()
@@ -79,27 +84,40 @@ def run_benchmark(
     generate_fixture(wav, reference_path)
     reference = pretty_midi.PrettyMIDI(str(reference_path))
 
-    # Stage 1: rights/provenance and artifact identity.
-    model_info = probe_model(model_revision)
-    if model_info["missing_files"]:
-        raise RuntimeError("Pinned model is missing required ADT_STR config/weights.")
+    # Stage 1: immutable upstream evidence, no repeated rate-limited API call.
+    if model_revision != OFFICIALLY_PROBED_MODEL_REVISION:
+        raise ValueError("Unreviewed HF revision; add its independent metadata and digest first.")
+    provenance = {
+        "repo_id": REPO_ID,
+        "requested_revision": model_revision,
+        "variant": VARIANT,
+        "expected_checkpoint_sha256": WEIGHTS_SHA256,
+        "metadata_verified_by": "https://github.com/kevin781130-netizen/MIDIVOLT/actions/runs/40094493713",
+        "hf_model_card_license_field": None,
+        "license_gate": "research_only_until_rights_cleared",
+    }
     (output / "hub_provenance.json").write_text(
-        json.dumps(model_info, indent=2) + "\n", encoding="utf-8"
+        json.dumps(provenance, indent=2) + "\n", encoding="utf-8"
     )
     download_started = time.perf_counter()
-    local_model_root = Path(snapshot_download(
-        repo_id=REPO_ID,
-        revision=model_revision,
-        allow_patterns=[f"{VARIANT}/*"],
-    ))
+    files = {}
+    for filename in ("model.safetensors", "adt_config.yaml", "config.json"):
+        path = hf_hub_download(
+            repo_id=REPO_ID, filename=f"{VARIANT}/{filename}",
+            revision=model_revision,
+        )
+        files[filename] = Path(path)
     download_seconds = time.perf_counter() - download_started
-    variant_dir = local_model_root / VARIANT
-    weight = variant_dir / "model.safetensors"
-    config = variant_dir / "adt_config.yaml"
-    if not weight.is_file() or not config.is_file():
-        raise RuntimeError("Hub checkpoint/config missing after download.")
-    # The checkpoint is used locally and never copied into uploaded artifacts.
-    hashes = {weight.name: sha256(weight), config.name: sha256(config)}
+    weight = files["model.safetensors"]
+    if sha256(weight) != WEIGHTS_SHA256:
+        raise RuntimeError("Pinned weight SHA-256 mismatch; refusing inference.")
+    local_model_root = weight.parent.parent
+    config = files["adt_config.yaml"]
+    hashes = {
+        "model.safetensors": WEIGHTS_SHA256,
+        "adt_config.yaml": sha256(config),
+        "config.json": sha256(files["config.json"]),
+    }
 
     # Stage 2: fair baseline on the same drum WAV and reference.
     start_dsp = time.perf_counter()
