@@ -10,6 +10,7 @@ import sys
 from .composition_engine import CompositionRequest, compose_candidate
 from .io import read_midi, write_midi
 from .local_model_provider import LocalText2MidiProvider
+from .part_orchestrator import compose_strict_parts, parse_program_assignments
 from .review_engine import create_proposal
 
 
@@ -26,6 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", required=True, help="NEW review manifest JSON")
     parser.add_argument("--lock", type=int, action="append", required=True,
                         help="Original track index to preserve; repeat as needed")
+    parser.add_argument("--strict-parts", action="store_true",
+                        help="Generate and validate exactly one track per explicitly requested instrument")
+    parser.add_argument("--program", action="append", metavar="ROLE=GM",
+                        help="Required GM selection for ambiguous roles in --strict-parts mode")
     parser.add_argument("--seed", type=int)
     parser.add_argument("--timeout", type=float, default=1200.0)
     parser.add_argument("--temperature", type=float, default=0.9)
@@ -62,20 +67,36 @@ def main(argv: list[str] | None = None) -> int:
             temperature=args.temperature,
             max_tokens=args.max_tokens,
         )
-        request = CompositionRequest(
-            prompt=args.prompt,
-            locked_tracks=tuple(args.lock),
-            seed=args.seed,
-            max_new_tracks=args.max_new_tracks,
-            max_new_notes=args.max_new_notes,
-        )
-        generated, _ = compose_candidate(source_midi, provider, request)
+        plan = None
+        if args.strict_parts:
+            assignments = parse_program_assignments(args.program)
+            generated, plan, _ = compose_strict_parts(
+                source_midi, args.prompt, provider,
+                locked_tracks=tuple(args.lock),
+                program_assignments=assignments,
+                seed=args.seed,
+                max_new_tracks=args.max_new_tracks,
+                max_total_notes=args.max_new_notes,
+            )
+        else:
+            if args.program:
+                raise ValueError("--program requires --strict-parts.")
+            request = CompositionRequest(
+                prompt=args.prompt,
+                locked_tracks=tuple(args.lock),
+                seed=args.seed,
+                max_new_tracks=args.max_new_tracks,
+                max_new_notes=args.max_new_notes,
+            )
+            generated, _ = compose_candidate(source_midi, provider, request)
         write_midi(generated, candidate)
         # Manifest binds the source and candidate hashes. Approval stays a
         # separate, explicit midivolt-review apply --approve operation.
         proposal = create_proposal(source, candidate, manifest, locked_tracks=args.lock)
         print(json.dumps({
             "provider": provider.name,
+            "strict_parts": bool(args.strict_parts),
+            "composition_plan": plan,
             "candidate": str(candidate),
             "manifest": str(manifest),
             "review": proposal["review"],
