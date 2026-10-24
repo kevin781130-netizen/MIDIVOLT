@@ -210,3 +210,11 @@ Existing output files are protected: use `--overwrite` to replace them. Input an
 ## Licensing
 
 MIDIVOLT is Apache-2.0. Third-party packages are installed as dependencies rather than vendored. See `THIRD_PARTY_NOTICES.md` for direct dependencies and licensing boundaries. Review model **weights**, data and redistribution conditions independently before adding models.
+
+## Experimental isolated-stem WAV → MIDI baseline
+
+The consolidated developer main now includes the independent `feat/benchmark-foundation` work under the standard `src/midivolt/` package layout, **not** a second top-level `midivolt` package. Pitched stems can run through optional Spotify Basic Pitch, and an opt-in DSP baseline maps kick/snare/closed-hat on isolated drum stems. It outputs separate MIDI tracks plus a multitrack SMF, without asserting precise transcription accuracy or automatic instrument separation.
+
+Use Python 3.11 and explicitly install optional dependencies: `python -m pip install -e ".[audio,dev]"`. Run `midivolt-transcribe --input stems --output midi --tempo 138 --drum-engine dsp` (omit `--drum-engine dsp` to skip drums); evaluate aligned predictions with `midivolt-evaluate --reference REF.mid --predicted OUT.mid`. See [transcription details](docs/transcription/BASIC_PITCH.md) and [benchmark plan](docs/benchmark/PLAN.md).
+
+The benchmark dataset commercial gate stays **fail-closed** until external rights/evidence are approved. This is a developer baseline, not a qualified commercial transcription engine; real WAV/Cubase/Windows acceptance is pending. Original project and source WAVs are not silently overwritten.
