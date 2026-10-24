@@ -53,6 +53,13 @@ class ScoreTests(unittest.TestCase):
         self.assertEqual(report["diagnostics"]["octave_error_candidates"], 1)
         self.assertEqual(report["diagnostics"]["unmatched_predicted_notes"][0]["pitch"], 72)
 
+    def test_split_tail_fragment_detected(self):
+        reference = midi((60, 0.35, 1.28))
+        predicted = midi((60, 0.35, 1.28), (60, 1.219, 1.335))
+        report = evaluate(reference, predicted)
+        self.assertEqual(report["diagnostics"]["split_tail_fragment_candidates"], 1)
+        self.assertEqual(report["note_onset"]["fp"], 1)
+
     def test_max_cardinality_not_greedy(self):
         reference = midi((60, 1.0, 1.5), (60, 1.06, 1.56))
         predicted = midi((60, 0.98, 1.5), (60, 1.03, 1.56))
