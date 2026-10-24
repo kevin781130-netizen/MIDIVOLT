@@ -1,8 +1,8 @@
 """Batch stem-to-MIDI baseline using Spotify Basic Pitch.
 
 Input WAV stems must share the same timeline, including their leading silence.
-This engine transcribes *pitched stems only*. Drum transcription is deliberately
-not faked by treating detected pitches as percussion notes.
+This engine handles pitched stems via Basic Pitch; optional drum DSP handles
+kick, snare and closed hi-hat without pretending drum pitches are melody.
 """
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def detect_kind(filename: str) -> str | None:
     return matched[0] if len(matched) == 1 else None
 
 
-def discover(input_path: Path, forced_type: str | None = None) -> tuple[list[Stem], list[dict]]:
+def discover(input_path: Path, forced_type: str | None = None, *, drums_enabled: bool = False) -> tuple[list[Stem], list[dict]]:
     if not input_path.exists():
         raise ValueError(f"Input does not exist: {input_path}")
     if input_path.is_file():
@@ -79,8 +79,8 @@ def discover(input_path: Path, forced_type: str | None = None) -> tuple[list[Ste
     skipped: list[dict] = []
     for path in files:
         kind = forced_type or detect_kind(path.name)
-        if kind == "drums":
-            skipped.append({"file": path.name, "reason": "drums_need_dedicated_engine"})
+        if kind == "drums" and not drums_enabled:
+            skipped.append({"file": path.name, "reason": "drums_disabled_pass_drum_engine_dsp"})
         elif kind is None:
             skipped.append({"file": path.name, "reason": "unrecognized_or_ambiguous_stem_name"})
         else:
@@ -122,7 +122,10 @@ def basic_pitch_backend() -> Callable[[Path, float, float, float, float], pretty
 
 def to_track(source: pretty_midi.PrettyMIDI, stem: Stem) -> pretty_midi.Instrument:
     """Copy note events unchanged in seconds, preserving bends and CCs."""
-    track = pretty_midi.Instrument(program=GM_PROGRAM[stem.kind], name=f"{stem.kind} | {stem.path.stem}")
+    track = pretty_midi.Instrument(
+        program=GM_PROGRAM.get(stem.kind, 0), is_drum=stem.kind == "drums",
+        name=f"{stem.kind} | {stem.path.stem}"
+    )
     for instrument in source.instruments:
         track.notes.extend(copy.deepcopy(instrument.notes))
         track.pitch_bends.extend(copy.deepcopy(instrument.pitch_bends))
@@ -140,6 +143,7 @@ def transcribe_stems(
     frame: float = 0.3,
     minimum_note_ms: float = 127.7,
     stem_type: str | None = None,
+    drum_engine: str = "off",
     overwrite: bool = False,
     predictor: Callable[[Path, float, float, float, float], pretty_midi.PrettyMIDI] | None = None,
 ) -> dict:
@@ -149,9 +153,11 @@ def transcribe_stems(
         raise ValueError("Thresholds must be strictly between 0 and 1.")
     if minimum_note_ms <= 0:
         raise ValueError("--min-note-ms must be positive.")
+    if drum_engine not in {"off", "dsp"}:
+        raise ValueError("--drum-engine must be off or dsp.")
 
     input_path, output_dir = Path(input_path), Path(output_dir)
-    stems, skipped = discover(input_path, stem_type)
+    stems, skipped = discover(input_path, stem_type, drums_enabled=(drum_engine == "dsp"))
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs = [output_dir / (s.path.stem + ".mid") for s in stems]
     combined_path = output_dir / "MIDIVOLT_multitrack.mid"
@@ -164,7 +170,7 @@ def transcribe_stems(
         if existing:
             raise FileExistsError("Refusing to overwrite: " + ", ".join(existing))
 
-    run = predictor or basic_pitch_backend()
+    run = (predictor or basic_pitch_backend()) if any(s.kind != "drums" for s in stems) else None
     combined = pretty_midi.PrettyMIDI(initial_tempo=tempo, resolution=960)
     records = []
     started = time.perf_counter()
@@ -173,7 +179,12 @@ def transcribe_stems(
         staging = Path(temp)
         for stem in stems:
             t0 = time.perf_counter()
-            source = run(stem.path, tempo, onset, frame, minimum_note_ms)
+            diagnostics = None
+            if stem.kind == "drums":
+                from midivolt.drums import transcribe_drum_wav
+                source, diagnostics = transcribe_drum_wav(stem.path, tempo=tempo)
+            else:
+                source = run(stem.path, tempo, onset, frame, minimum_note_ms)
             if not isinstance(source, pretty_midi.PrettyMIDI):
                 raise TypeError(f"Backend did not return PrettyMIDI for {stem.path.name}")
             track = to_track(source, stem)
@@ -187,11 +198,13 @@ def transcribe_stems(
                 "midi_file": stem.path.stem + ".mid",
                 "track_name": track.name,
                 "note_count": len(track.notes),
+                "engine": "drum_dsp_v1" if stem.kind == "drums" else "spotify_basic_pitch",
+                "drum_diagnostics": diagnostics,
                 "inference_seconds": round(time.perf_counter() - t0, 3),
             })
         combined.write(str(staging / combined_path.name))
         report = {
-            "engine": "spotify_basic_pitch",
+            "engine": "spotify_basic_pitch_plus_drum_dsp" if any(s.kind == "drums" for s in stems) and run is not None else ("drum_dsp_v1" if run is None else "spotify_basic_pitch"),
             "mode": "unquantized_seconds_on_original_wav_timeline",
             "tempo_bpm_midi_grid_only": tempo,
             "parameters": {
@@ -204,6 +217,7 @@ def transcribe_stems(
             "total_seconds": round(time.perf_counter() - started, 3),
             "multitrack_file": combined_path.name,
             "warning": "Baseline only: not instrument separation or guaranteed note accuracy. "
+                       "Drums require --drum-engine dsp; only kick/snare/closed-hat supported. "
                        "WAVs must already have synchronized start times.",
         }
         (staging / report_path.name).write_text(
@@ -218,7 +232,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="MIDIVOLT: batch pitched WAV stems to aligned MIDI tracks.")
     parser.add_argument("--input", type=Path, required=True, help="single WAV or folder with stems")
     parser.add_argument("--output", type=Path, required=True, help="directory for MIDI and report")
-    parser.add_argument("--stem-type", choices=tuple(GM_PROGRAM), help="override filename for a single WAV")
+    parser.add_argument("--stem-type", choices=tuple(GM_PROGRAM) + ("drums",), help="override filename for a single WAV")
+    parser.add_argument("--drum-engine", choices=("off", "dsp"), default="off", help="opt-in kick/snare/hat detection; no pretrained models")
     parser.add_argument("--tempo", type=float, default=120.0, help="MIDI grid BPM; does not quantize notes")
     parser.add_argument("--onset-threshold", type=float, default=0.5)
     parser.add_argument("--frame-threshold", type=float, default=0.3)
@@ -233,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             frame=args.frame_threshold,
             minimum_note_ms=args.min_note_ms,
             stem_type=args.stem_type,
+            drum_engine=args.drum_engine,
             overwrite=args.overwrite,
         )
     except (ValueError, OSError, RuntimeError, TypeError) as exc:
