@@ -183,7 +183,10 @@ def _summarize(records: list[dict]) -> dict:
         for pitch, data in sorted(pitch_count.items(), key=lambda p: int(p[0]))
     }
     family_coverage = {
-        family: sorted(int(p) for p in per_pitch if int(p) in notes)
+        family: sorted(
+            int(pitch) for pitch, values in per_pitch.items()
+            if int(pitch) in notes and values["tp"] + values["fn"] > 0
+        )
         for family, notes in GM_FAMILIES.items()
     }
     times = sorted(r["seconds"] for r in records)
@@ -191,6 +194,7 @@ def _summarize(records: list[dict]) -> dict:
     return {
         "sample_count": len(records),
         "song_count": len(songs),
+        "failure_count": sum(bool(r.get("failed", False)) for r in records),
         "song_macro_f1": round(statistics.mean(v["f1"] for v in songs.values()), 6),
         "event_micro": _score_counts(total["tp"], total["fp"], total["fn"]),
         "per_song": songs,
@@ -232,23 +236,33 @@ def run_suite(
         entry, wav, reference = checked["entry"], checked["wav"], checked["truth"]
         for engine in engines:
             started = time.perf_counter()
-            if engine == "dsp":
-                if predictions[engine] is not None:
-                    midi, diagnostics = predictions[engine](wav)
+            failed = False
+            try:
+                if engine == "dsp":
+                    if predictions[engine] is not None:
+                        midi, diagnostics = predictions[engine](wav)
+                    else:
+                        midi, diagnostics = transcribe_drum_wav(wav)
                 else:
-                    midi, diagnostics = transcribe_drum_wav(wav)
-            else:
-                if predictions[engine] is not None:
-                    midi, diagnostics = predictions[engine](wav)
-                else:
-                    midi, diagnostics = transcribe_adt_str(
-                        wav, tempo=120, repo_root=adt_root, checkpoint=adt_checkpoint,
-                        python_executable=adt_python, research_only=research_only,
-                    )
+                    if predictions[engine] is not None:
+                        midi, diagnostics = predictions[engine](wav)
+                    else:
+                        midi, diagnostics = transcribe_adt_str(
+                            wav, tempo=120, repo_root=adt_root, checkpoint=adt_checkpoint,
+                            python_executable=adt_python, research_only=research_only,
+                        )
+                if not isinstance(midi, pretty_midi.PrettyMIDI):
+                    raise TypeError(f"Engine {engine} returned no MIDI.")
+                scores = evaluate_drums(reference, midi)
+            except Exception as exc:
+                # An inference failure counts as all-reference-note misses, not
+                # as an omitted hard song that would inflate reported F1.
+                failed = True
+                midi = pretty_midi.PrettyMIDI()
+                midi.instruments.append(pretty_midi.Instrument(program=0, is_drum=True))
+                diagnostics = {"error_type": type(exc).__name__, "error": str(exc)[:400]}
+                scores = evaluate_drums(reference, midi)
             seconds = time.perf_counter() - started
-            if not isinstance(midi, pretty_midi.PrettyMIDI):
-                raise ValueError(f"Engine {engine} did not return MIDI for {entry['sample_id']}")
-            scores = evaluate_drums(reference, midi)
             sample_results.append({
                 "sample_id": entry["sample_id"],
                 "song_id": entry["source_song_id"],
@@ -256,6 +270,7 @@ def run_suite(
                 "audio_domain": entry["audio_domain"],
                 "technique_tags": entry.get("technique_tags", []),
                 "engine": engine,
+                "failed": failed,
                 "duration_seconds": round(checked["duration"], 4),
                 "sample_rate_hz": checked["sample_rate"],
                 "seconds": round(seconds, 4),
@@ -275,6 +290,18 @@ def run_suite(
         "reference": "held-out GM percussion MIDI, unquantized predicted onset, 50ms tolerance",
         "reference_license": "metadata self-declared; independent legal review required",
         "real_recordings_present": bool(grouped["real_recording"][engines[0]]["sample_count"]),
+        "real_coverage_gate": {
+            "minimum_song_count": 5,
+            "enough_distinct_songs": grouped["real_recording"][engines[0]]["song_count"] >= 5,
+            "reference_gm_families_covered": bool(
+                grouped["real_recording"][engines[0]].get("real_kit_coverage_complete", False)
+            ),
+            "no_inference_failures": all(
+                grouped["real_recording"][engine].get("failure_count", 0) == 0
+                for engine in engines
+            ),
+            "note": "Coverage screening only, not statistical model validation or legal clearance",
+        },
         "synthetic_scores_separate": True,
         "commercial_model_status": {"dsp": "dependency_review_pending", "adt_str": "research_only"},
         "engines": list(engines),
