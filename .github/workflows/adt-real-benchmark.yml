@@ -61,7 +61,7 @@ jobs:
 
       - name: Real ADT_STR weight inference and DSP F1 comparison
         run: |
-          python scripts/adt_real_benchmark.py \
+          python -m scripts.adt_real_benchmark \
             --upstream-root "$ADT_ROOT" \
             --model-revision "$MODEL_REVISION" \
             --upstream-revision "$SOURCE_REVISION" \
