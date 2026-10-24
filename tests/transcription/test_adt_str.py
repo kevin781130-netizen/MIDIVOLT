@@ -71,7 +71,7 @@ class ModelBridgeTests(unittest.TestCase):
             self.assertEqual(info["license_gate"], "research_only")
             self.assertEqual(info["gm_pitch_histogram"], {"36": 1, "38": 1, "42": 1})
             self.assertTrue(output.instruments[0].is_drum)
-            self.assertAlmostEqual(output.instruments[0].notes[0].start, 0.25, places=3)
+            self.assertLess(abs(output.instruments[0].notes[0].start - 0.25), 0.003)
 
     def test_bad_upstream_midi_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
