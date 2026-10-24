@@ -91,7 +91,7 @@ def test_child_process_to_three_track_review_and_explicit_approval(tmp_path, mon
 def test_invalid_lock_never_runs_model(tmp_path, monkeypatch):
     src, candidate, manifest, runner, argv = fixtures(tmp_path)
     monkeypatch.setattr("midivolt.model_adapters._runner_script", lambda _: runner)
-    argv[-1] = "5"
+    argv[argv.index("--lock") + 1] = "5"
     assert main(argv) == 2
     assert not candidate.exists() and not manifest.exists()
     assert len(read_midi(src).instruments) == 1
