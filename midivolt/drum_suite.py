@@ -29,6 +29,7 @@ import pretty_midi
 from midivolt.adt_str import transcribe_adt_str
 from midivolt.compare_drums import evaluate_drums, drum_events
 from midivolt.drums import transcribe_drum_wav
+from midivolt.alignment_qc import inspect_alignment
 
 DOMAINS = ("real_recording", "electronic_kit_recording", "synthetic_rendered")
 # E-GMD/GMD drummer events use Roland-specific kit pitches. Only documented
@@ -257,6 +258,7 @@ def run_suite(
     sample_results = []
     for checked in entries:
         entry, wav, reference = checked["entry"], checked["wav"], checked["truth"]
+        alignment = inspect_alignment(wav, reference)
         for engine in engines:
             started = time.perf_counter()
             failed = False
@@ -293,6 +295,7 @@ def run_suite(
                 "audio_domain": entry["audio_domain"],
                 "human_performed": bool(entry.get("human_performed", False)),
                 "reference_midi_mapping": checked["reference_mapping"],
+                "alignment_quality": alignment,
                 "technique_tags": entry.get("technique_tags", []),
                 "engine": engine,
                 "failed": failed,
@@ -331,6 +334,15 @@ def run_suite(
             "note": "Coverage screening only, not statistical model validation or legal clearance",
         },
         "audio_domains_reported_separately": list(DOMAINS),
+        "alignment_review_required_samples": sorted({
+            record["sample_id"]
+            for record in sample_results
+            if record["alignment_quality"]["status"] in (
+                "suspected_offset", "inconclusive", "insufficient_confident_events",
+                "insufficient_audio_transients",
+            )
+        }),
+        "alignment_policy": "diagnostic_only_no_reference_or_prediction_shift",
         "synthetic_scores_separate": True,
         "commercial_model_status": {"dsp": "dependency_review_pending", "adt_str": "research_only"},
         "engines": list(engines),
