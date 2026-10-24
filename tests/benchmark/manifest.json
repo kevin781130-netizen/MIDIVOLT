@@ -213,11 +213,16 @@
       "instrument_scope": [
         "drums"
       ],
-      "status": "research_candidate",
+      "status": "research_integration_only",
       "code_license": "CC-BY-SA-4.0",
-      "checkpoint_license_status": "verify_before_release",
+      "checkpoint_license_status": "CC-BY-SA-4.0 reported; exact checkpoint and provenance require verification",
       "version": null,
-      "checkpoint_sha256": null
+      "checkpoint_sha256": null,
+      "commercial_terms_status": "share_alike_attribution_and_distribution_review_required",
+      "integration_path": "midivolt/adt_str.py",
+      "network_download": "disabled",
+      "execution_gate": "--research-only (runtime); publication remains blocked",
+      "benchmark_status": "no actual ADT_STR checkpoint run or human-ground-truth F1 in MIDIVOLT"
     },
     {
       "engine_id": "midivolt_drum_dsp_v1",
