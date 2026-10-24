@@ -1,0 +1,78 @@
+name: MIDIVOLT ADT_STR Real-Checkpoint Research Benchmark
+
+# This expensive CPU job is opt-in. Normal pushes NEVER execute it.
+# To run exactly once, include [adt-real-once] in a commit message.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/benchmark-foundation
+
+permissions:
+  contents: read
+
+jobs:
+  adt-real-research:
+    if: \${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[adt-real-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      MODEL_REVISION: a33c5c6b191a4ca1e0f6dc22140947485eb36ce8
+      SOURCE_REVISION: 77dbef225e7029478ebfb916f20c7a00274f0f12
+      BENCH_OUT: \${{ runner.temp }}/midivolt-adt-benchmark
+      ADT_ROOT: \${{ runner.temp }}/ADT_STR
+      HF_HUB_DISABLE_TELEMETRY: '1'
+    steps:
+      - name: Check out MIDIVOLT
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install metadata client only
+        run: python -m pip install "huggingface_hub>=0.35,<2"
+
+      - name: Verify exact model revision and required files
+        run: |
+          python -m midivolt.adt_hf_probe \
+            --revision "$MODEL_REVISION" \
+            --output "$BENCH_OUT/model_metadata.json"
+
+      - name: Install pinned PyTorch CPU runtime
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.8.0" "torchaudio==2.8.0"
+
+      - name: Install isolated benchmark dependencies
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "transformers>=4.44,<5" \
+            "omegaconf>=2.3,<3" "safetensors>=0.4,<1" "soundfile>=0.12,<1" \
+            "torchcodec>=0.7,<0.8"
+
+      - name: Fetch exact upstream source revision
+        run: |
+          git clone --filter=blob:none https://github.com/pier-maker92/ADT_STR.git "$ADT_ROOT"
+          git -C "$ADT_ROOT" fetch --depth=1 origin "$SOURCE_REVISION"
+          git -C "$ADT_ROOT" checkout --detach "$SOURCE_REVISION"
+          test "$(git -C "$ADT_ROOT" rev-parse HEAD)" = "$SOURCE_REVISION"
+
+      - name: Real ADT_STR weight inference and DSP F1 comparison
+        run: |
+          python scripts/adt_real_benchmark.py \
+            --upstream-root "$ADT_ROOT" \
+            --model-revision "$MODEL_REVISION" \
+            --upstream-revision "$SOURCE_REVISION" \
+            --output "$BENCH_OUT" \
+            --research-only
+
+      - name: Upload non-model research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-adt-str-real-model-benchmark
+          path: \${{ runner.temp }}/midivolt-adt-benchmark/
+          if-no-files-found: warn
+          retention-days: 7
