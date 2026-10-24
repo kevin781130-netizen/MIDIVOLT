@@ -1,4 +1,5 @@
 # First local baseline; validate full dependency and checkpoint terms before distribution.
 # Python 3.10 is a conservative cross-platform starting point for Basic Pitch.
+numpy>=1.23.5,<2.0
 basic-pitch>=0.4.0,<0.5
 pretty_midi>=0.2.10,<0.3
