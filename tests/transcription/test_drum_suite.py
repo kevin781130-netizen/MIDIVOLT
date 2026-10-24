@@ -96,6 +96,37 @@ class DrumSuiteTests(unittest.TestCase):
             self.assertEqual(report["by_audio_domain"]["synthetic_rendered"]["dsp"]["gm_family_coverage"]["ride"], [])
             self.assertTrue((root / "out" / "drum_suite_report.json").exists())
 
+    def test_failed_model_counts_as_all_missed_notes_and_reports_failure(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            file = manifest(root, [make_sample(root, 1)])
+            def crashed_model(_wav):
+                raise RuntimeError("out of memory")
+            report = run_suite(
+                file, output_dir=root / "out", include_synthetic=True,
+                engines=("dsp",), dsp_predict=crashed_model,
+            )
+            item = report["samples"][0]
+            self.assertTrue(item["failed"])
+            self.assertEqual(item["scores"]["micro"]["fn"], len(PATTERN))
+            self.assertEqual(item["scores"]["micro"]["tp"], 0)
+            self.assertEqual(report["by_audio_domain"]["synthetic_rendered"]["dsp"]["failure_count"], 1)
+
+    def test_predictions_do_not_count_as_reference_class_coverage(self):
+        from midivolt.drum_suite import _summarize
+        report = _summarize([{
+            "song_id": "song", "seconds": 1.0, "realtime_factor": 0.1,
+            "scores": {
+                "micro": {"tp": 0, "fp": 1, "fn": 1},
+                "per_gm_pitch": {
+                    "36": {"tp": 0, "fp": 0, "fn": 1},
+                    "51": {"tp": 0, "fp": 1, "fn": 0},
+                },
+            },
+        }])
+        self.assertEqual(report["gm_family_coverage"]["kick"], [36])
+        self.assertEqual(report["gm_family_coverage"]["ride"], [])
+
     def test_unapproved_rights_block_before_model_is_run(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
