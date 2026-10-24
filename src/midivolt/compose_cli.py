@@ -37,6 +37,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-tokens", type=int, default=2000)
     parser.add_argument("--max-new-tracks", type=int, default=16)
     parser.add_argument("--max-new-notes", type=int, default=20000)
+    parser.add_argument("--min-structure-score", type=float, default=0.75,
+                        help="Strict mode: 0..1 symbolic-structure gate, not an aesthetic score")
+    parser.add_argument("--retry-per-part", type=int, default=1,
+                        help="Strict mode: retry failed structure/GM checks 0..3 times")
     return parser
 
 
@@ -77,10 +81,14 @@ def main(argv: list[str] | None = None) -> int:
                 seed=args.seed,
                 max_new_tracks=args.max_new_tracks,
                 max_total_notes=args.max_new_notes,
+                minimum_structure_score=args.min_structure_score,
+                quality_retries=args.retry_per_part,
             )
         else:
             if args.program:
                 raise ValueError("--program requires --strict-parts.")
+            if args.retry_per_part != 1 or args.min_structure_score != 0.75:
+                raise ValueError("Quality/retry flags require --strict-parts.")
             request = CompositionRequest(
                 prompt=args.prompt,
                 locked_tracks=tuple(args.lock),
