@@ -82,7 +82,7 @@ jobs:
       - name: Run full inference with generated WAV and reference MIDI
         env:
           MIDIVOLT_RUN_E2E: '1'
-          MIDIVOLT_SMOKE_ARTIFACT_DIR: \${{ runner.temp }}/midivolt-smoke
+          MIDIVOLT_SMOKE_ARTIFACT_DIR: ${{ runner.temp }}/midivolt-smoke
         run: python -m unittest discover -s tests/transcription -p 'test_basic_pitch_e2e.py' -v
 
       - name: Upload MIDI and note-accuracy diagnostics
@@ -90,6 +90,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: midivolt-basic-pitch-smoke
-          path: \${{ runner.temp }}/midivolt-smoke/
+          path: ${{ runner.temp }}/midivolt-smoke/
           if-no-files-found: warn
           retention-days: 7
