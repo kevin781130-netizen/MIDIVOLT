@@ -30,7 +30,11 @@ from midivolt.adt_str import transcribe_adt_str
 from midivolt.compare_drums import evaluate_drums, drum_events
 from midivolt.drums import transcribe_drum_wav
 
-DOMAINS = ("real_recording", "synthetic_rendered")
+DOMAINS = ("real_recording", "electronic_kit_recording", "synthetic_rendered")
+# E-GMD/GMD drummer events use Roland-specific kit pitches. Only documented
+# non-GM variants are mapped; reference MIDI stays byte-for-byte on disk.
+ROLAND_TD11_TO_GM = {22: 42, 26: 46, 58: 43}
+REFERENCE_MAPPINGS = ("gm_native", "roland_td11_to_gm")
 ENGINES = ("dsp", "adt_str")
 # GM note families are for coverage ONLY; scoring remains exact-pitch.
 GM_FAMILIES = {
@@ -64,6 +68,21 @@ def _within_folder(folder: Path, relative: str) -> Path:
     return full
 
 
+def _normalize_reference(midi: pretty_midi.PrettyMIDI, mapping: str) -> pretty_midi.PrettyMIDI:
+    if mapping not in REFERENCE_MAPPINGS:
+        raise ValueError("Unsupported reference MIDI mapping: " + str(mapping))
+    # New MIDI object in memory; do not change the source file.
+    import copy
+    normalized = copy.deepcopy(midi)
+    if mapping == "roland_td11_to_gm":
+        for track in normalized.instruments:
+            if not track.is_drum:
+                raise ValueError("Reference mapping requires GM percussion MIDI tracks.")
+            for note in track.notes:
+                note.pitch = ROLAND_TD11_TO_GM.get(note.pitch, note.pitch)
+    return normalized
+
+
 def _validate_entry(entry: dict, root: Path, allow_synthetic: bool) -> dict:
     required_strings = (
         "sample_id", "source_song_id", "performance_id", "split",
@@ -80,8 +99,11 @@ def _validate_entry(entry: dict, root: Path, allow_synthetic: bool) -> dict:
     domain = entry["audio_domain"]
     if domain not in DOMAINS:
         raise ValueError(f"{entry['sample_id']}: audio_domain must be one of {DOMAINS}")
-    if domain != "real_recording" and not allow_synthetic:
+    if domain == "synthetic_rendered" and not allow_synthetic:
         raise ValueError("Synthetic examples require --include-synthetic and separate reporting")
+    mapping = entry.get("reference_midi_mapping", "gm_native")
+    if mapping not in REFERENCE_MAPPINGS:
+        raise ValueError("Invalid reference_midi_mapping for " + entry["sample_id"])
     rights = entry.get("rights")
     if not isinstance(rights, dict):
         raise ValueError(f"{entry['sample_id']}: missing rights review")
@@ -113,7 +135,7 @@ def _validate_entry(entry: dict, root: Path, allow_synthetic: bool) -> dict:
         sr = f.getframerate()
     if duration <= 0:
         raise ValueError(f"{entry['sample_id']}: empty audio")
-    truth = pretty_midi.PrettyMIDI(str(reference_path))
+    truth = _normalize_reference(pretty_midi.PrettyMIDI(str(reference_path)), mapping)
     events = drum_events(truth)
     if events and max(n.start for n in events) > duration + 0.1:
         raise ValueError(f"{entry['sample_id']}: MIDI onset beyond WAV duration; check alignment")
@@ -122,6 +144,7 @@ def _validate_entry(entry: dict, root: Path, allow_synthetic: bool) -> dict:
     return {
         "entry": entry, "wav": path, "reference_path": reference_path,
         "truth": truth, "duration": duration, "sample_rate": sr,
+        "reference_mapping": mapping,
     }
 
 
@@ -268,6 +291,8 @@ def run_suite(
                 "song_id": entry["source_song_id"],
                 "performance_id": entry["performance_id"],
                 "audio_domain": entry["audio_domain"],
+                "human_performed": bool(entry.get("human_performed", False)),
+                "reference_midi_mapping": checked["reference_mapping"],
                 "technique_tags": entry.get("technique_tags", []),
                 "engine": engine,
                 "failed": failed,
@@ -290,6 +315,9 @@ def run_suite(
         "reference": "held-out GM percussion MIDI, unquantized predicted onset, 50ms tolerance",
         "reference_license": "metadata self-declared; independent legal review required",
         "real_recordings_present": bool(grouped["real_recording"][engines[0]]["sample_count"]),
+        "electronic_kit_recordings_present": bool(
+            grouped["electronic_kit_recording"][engines[0]]["sample_count"]
+        ),
         "real_coverage_gate": {
             "minimum_song_count": 5,
             "enough_distinct_songs": grouped["real_recording"][engines[0]]["song_count"] >= 5,
@@ -302,6 +330,7 @@ def run_suite(
             ),
             "note": "Coverage screening only, not statistical model validation or legal clearance",
         },
+        "audio_domains_reported_separately": list(DOMAINS),
         "synthetic_scores_separate": True,
         "commercial_model_status": {"dsp": "dependency_review_pending", "adt_str": "research_only"},
         "engines": list(engines),
