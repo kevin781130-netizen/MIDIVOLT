@@ -1,0 +1,6 @@
+# First local baseline; validate full dependency and checkpoint terms before distribution.
+# MIDIVOLT RC targets Python 3.11; verify optional Basic Pitch runtime on target platforms.
+numpy>=1.23.5,<2.0
+basic-pitch>=0.4.0,<0.5
+pretty_midi>=0.2.10,<0.3
+scipy>=1.10,<2
