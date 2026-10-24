@@ -97,3 +97,35 @@ def test_track_and_note_budgets_are_enforced():
 def test_no_provider_weights_or_network_are_needed():
     candidate, _ = compose_candidate(melody(), FakeGenerator(), CompositionRequest("Demo", (0,)))
     assert len(candidate.instruments) == 3
+
+
+def test_real_midi_roundtrip_accepts_numpy_integer_program(tmp_path):
+    """Regression: pretty_midi parses GM program-change values as numpy.int64."""
+    generated = pretty_midi.PrettyMIDI(initial_tempo=120)
+    piano = pretty_midi.Instrument(program=0, name="AI piano")
+    piano.notes.append(pretty_midi.Note(90, 60, 0, 0.5))
+    generated.instruments.append(piano)
+    output = tmp_path / "generated.mid"
+    generated.write(str(output))
+    loaded = pretty_midi.PrettyMIDI(str(output))
+    from numbers import Integral
+    assert isinstance(loaded.instruments[0].program, Integral)
+    assert type(loaded.instruments[0].program) is not int  # NumPy scalar on real read
+    candidate, diff = compose_candidate(
+        melody(), FakeGenerator(loaded),
+        CompositionRequest("Add piano", locked_tracks=(0,)),
+    )
+    assert [track.program for track in candidate.instruments] == [73, 0]
+    assert diff["notes_added"] == 1
+    assert diff["notes_removed"] == 0
+
+
+def test_boolean_program_still_rejected():
+    """bool is an Integral subclass but not a valid program number type."""
+    raw = FakeGenerator().generate("test", tempo=120)
+    raw.instruments[0].program = True
+    with pytest.raises(ValueError, match="invalid MIDI program"):
+        compose_candidate(
+            melody(), FakeGenerator(raw),
+            CompositionRequest("Add piano", locked_tracks=(0,)),
+        )
