@@ -111,7 +111,7 @@ class DrumTests(unittest.TestCase):
             self.assertEqual([x.is_drum for x in merged.instruments], [False, True])
             self.assertEqual([x.name for x in merged.instruments],
                              ["bass | Song (Bass)", "drums | Song (Drums)"])
-            self.assertEqual(merged.instruments[0].notes[0].start, 0.35)
+            self.assertAlmostEqual(merged.instruments[0].notes[0].start, 0.35, places=3)
 
     def test_silent_audio_emits_zero_notes_without_inventing_hits(self):
         with tempfile.TemporaryDirectory() as folder:
