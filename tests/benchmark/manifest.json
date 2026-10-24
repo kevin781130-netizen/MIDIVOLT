@@ -218,6 +218,24 @@
       "checkpoint_license_status": "verify_before_release",
       "version": null,
       "checkpoint_sha256": null
+    },
+    {
+      "engine_id": "midivolt_drum_dsp_v1",
+      "type": "local_dsp",
+      "instrument_scope": [
+        "drums"
+      ],
+      "status": "baseline_candidate_not_real_recording_validated",
+      "code_license": "Apache-2.0 (MIDIVOLT repository)",
+      "external_model_weights": "none",
+      "software_dependencies": [
+        "numpy",
+        "scipy",
+        "pretty_midi"
+      ],
+      "commercial_terms_status": "review_dependency_licenses_before_release",
+      "benchmark_status": "synthetic_event_fixture_only",
+      "code_path": "midivolt/drums.py"
     }
   ],
   "sample_record_schema": {
