@@ -101,6 +101,27 @@ def project_events(
     return sorted(result, key=lambda e: (e.pitch, e.start, e.end))
 
 
+
+def require_custom_checkpoint(transcriber) -> dict:
+    """Fail closed unless the actual loaded checkpoint emits 26 custom labels.
+
+    Pinning a source training configuration alone is not sufficient evidence
+    that the downloaded model checkpoint contains the same tokenizer options.
+    """
+    tokenizer = getattr(transcriber, "tokenizer", None)
+    enabled = getattr(tokenizer, "ADTOF_mapping", None)
+    if enabled is not False:
+        raise RuntimeError(
+            "ADT_STR checkpoint tokenizer is not verified for custom 26-class "
+            "output (ADTOF_mapping must be explicitly false); refuse ontology scoring"
+        )
+    return {
+        "ADTOF_mapping": False,
+        "verified_from": "loaded_ADTTranscriber.tokenizer",
+        "output_namespace": "adt_str_custom",
+        "upstream_source_sha": UPSTREAM_SOURCE_SHA,
+    }
+
 def evaluate_common_ontology(
     reference: pretty_midi.PrettyMIDI,
     predicted: pretty_midi.PrettyMIDI,
