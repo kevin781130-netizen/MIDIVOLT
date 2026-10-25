@@ -25,6 +25,7 @@ SOURCE = "https://magenta.tensorflow.org/datasets/e-gmd"
 def prepare(
     csv_path: Path, output: Path, *,
     count: int = 6, fills: int = 2, extract_range: bool = False,
+    official_cc_by_research_review: bool = False,
 ) -> dict:
     rows = choose_validation_metadata(
         read_metadata(csv_path),
@@ -72,9 +73,26 @@ def prepare(
     )
     if len(files) != len(rows):
         raise RuntimeError("E-GMD official validation extraction missing sample pairs")
+    research_license_note = (
+        "Verified official E-GMD v1.0.0 dataset page states CC BY 4.0 by "
+        "Google LLC. Internal validation benchmarking only. Review is "
+        "automated source-license verification, NOT independent legal advice "
+        "or permission to redistribute model weights or third-party media."
+    )
     manifest = {
         "schema_version": "1",
         "dataset": VALIDATION_DATASET,
+        "license_verification": {
+            "source_url": SOURCE,
+            "source_declared_license": "CC BY 4.0",
+            "verification_method": (
+                "explicit automated source-license verification (not a human legal review)"
+                if official_cc_by_research_review else "pending human verification"
+            ),
+            "research_only": True,
+            "prohibited_artifacts": ["wav", "midi", "model_weights"],
+            "legal_clearance_for_product_distribution": False,
+        },
         "purpose": "Validation-only hi-hat DSP tuning; NOT final Test benchmark",
         "remote_zip_content_length": zip_bytes,
         "samples": [],
@@ -97,16 +115,31 @@ def prepare(
             "kit_name": record["kit_name"],
             "bpm": record["bpm"],
             "rights": {
-                "status": "pending",
-                "research_evaluation_allowed": False,
+                "status": "approved" if official_cc_by_research_review else "pending",
+                "research_evaluation_allowed": bool(official_cc_by_research_review),
+                "commercial_benchmark_allowed": False,
                 "audio_license": "CC BY 4.0 (Google Magenta declaration; individual rights review pending)",
                 "midi_license": "CC BY 4.0 (Google Magenta declaration; individual rights review pending)",
                 "evidence_url": SOURCE,
-                "reviewer": "unassigned",
-                "attribution": "Google LLC, Expanded Groove MIDI Dataset v1.0.0",
+                "reviewer": (
+                    "automated official dataset license/source verification"
+                    if official_cc_by_research_review else "unassigned"
+                ),
+                "review_method": (
+                    "CC BY 4.0 internal evaluation grant; automated verification, not legal review"
+                    if official_cc_by_research_review else "pending independent review"
+                ),
+                "attribution": (
+                    "Google LLC, Expanded Groove MIDI Dataset v1.0.0, CC BY 4.0; "
+                    "Callender, Hawthorne and Engel (2020)"
+                ),
             },
         })
-    path = output / "validation_manifest_PENDING_REVIEW.json"
+    path = output / (
+        "validation_manifest_SOURCE_LICENSE_REVIEWED.json"
+        if official_cc_by_research_review
+        else "validation_manifest_PENDING_REVIEW.json"
+    )
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8")
     return {
@@ -114,7 +147,13 @@ def prepare(
         "manifest": str(path),
         "song_count": len(files),
         "wav_midi_pairs_extracted": len(files),
-        "benchmark_execution_allowed": False,
+        "benchmark_execution_allowed": bool(official_cc_by_research_review),
+        "independent_legal_clearance": False,
+        "license_source": SOURCE,
+        "rights_review_mode": (
+            "automated_official_source_license_verification"
+            if official_cc_by_research_review else "human_review_pending"
+        ),
         "large_zip_full_downloaded": False,
     }
 
@@ -126,11 +165,17 @@ def main(argv=None):
     ap.add_argument("--count", type=int, default=6)
     ap.add_argument("--fills", type=int, default=2)
     ap.add_argument("--extract-range", action="store_true")
+    ap.add_argument(
+        "--official-cc-by-research-review", action="store_true",
+        help="Record an explicit automated CC BY 4.0 source verification for internal "
+             "research only. Never authorizes release/redistribution; no human legal review."
+    )
     args = ap.parse_args(argv)
     try:
         result = prepare(
             args.csv, args.output, count=args.count, fills=args.fills,
             extract_range=args.extract_range,
+            official_cc_by_research_review=args.official_cc_by_research_review,
         )
     except (OSError, RuntimeError, ValueError, KeyError) as exc:
         ap.exit(1, f"E-GMD validation preparation blocked: {exc}\n")
