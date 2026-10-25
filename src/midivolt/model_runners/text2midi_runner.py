@@ -6,6 +6,11 @@ import random
 import sys
 from pathlib import Path
 
+from text2midi_local import (
+    inspect_local_t5, inspect_upstream_text2midi_contract,
+    redirect_known_t5_encoder,
+)
+
 def main():
     p = argparse.ArgumentParser()
     for name in ("checkout", "checkpoint", "vocab", "t5-dir", "prompt", "out"):
@@ -14,9 +19,11 @@ def main():
     p.add_argument("--max-tokens", type=int, required=True)
     p.add_argument("--seed", type=int)
     a = p.parse_args()
+    inspect_local_t5(a.t5_dir)
+    inspect_upstream_text2midi_contract(a.checkout)
     sys.path.insert(0, str(Path(a.checkout).resolve(strict=True)))
     import torch
-    from transformers import T5Tokenizer
+    from transformers import T5Tokenizer, T5EncoderModel
     from model.transformer_model import Transformer
 
     if a.seed is not None:
@@ -27,8 +34,12 @@ def main():
     # Pickle may execute code: operator MUST verify provenance of this local file.
     with Path(a.vocab).open("rb") as stream:
         remi = pickle.load(stream)
-    model = Transformer(len(remi), 768, 8, 2048, 18, 1024,
-                        False, 8, device=device)
+    # Upstream Transformer.__init__ calls T5EncoderModel.from_pretrained
+    # with a hardcoded HF model ID. Resolve only that request to local
+    # operator-supplied encoder assets so offline runs cannot download it.
+    with redirect_known_t5_encoder(T5EncoderModel, a.t5_dir):
+        model = Transformer(len(remi), 768, 8, 2048, 18, 1024,
+                            False, 8, device=device)
     state = torch.load(a.checkpoint, map_location=device, weights_only=True)
     model.load_state_dict(state)
     model.to(device).eval()
