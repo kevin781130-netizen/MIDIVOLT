@@ -135,6 +135,52 @@ def select_diverse_test_rows(
     return selected
 
 
+
+def select_mixed_test_rows(
+    metadata: list[dict],
+    *,
+    count: int = 6,
+    short_fill_count: int = 2,
+    min_long_duration: float = 8.0,
+    max_long_duration: float = 35.0,
+    min_drummers: int = 3,
+    kit: str = "Acoustic Kit",
+    seed: str = "midivolt-e-gmd-heldout-diverse-v1",
+) -> list[dict]:
+    """Four long beat/groove excerpts plus two short fills by default.
+
+    Prevents a selection window that inadvertently drops all fills from
+    the test split. Each stratum is chosen without observing note labels,
+    waveform content, or any model predictions.
+    """
+    if not 0 <= short_fill_count < count:
+        raise ValueError("short_fill_count must be between zero and count-1")
+    long_count = count - short_fill_count
+    if min_drummers > long_count:
+        raise ValueError("min_drummers must fit within long excerpts")
+    long_rows = [r for r in metadata if r.get("beat_type") == "beat"]
+    chosen_long = select_diverse_test_rows(
+        long_rows, count=long_count,
+        min_duration=min_long_duration, max_duration=max_long_duration,
+        min_drummers=min_drummers, kit=kit, seed=seed + "|long",
+    )
+    if not short_fill_count:
+        return chosen_long
+    short_fill_rows = [r for r in metadata if r.get("beat_type") == "fill"]
+    chosen_fills = select_diverse_test_rows(
+        short_fill_rows, count=short_fill_count,
+        min_duration=1.0, max_duration=7.0,
+        min_drummers=1, kit=kit, seed=seed + "|short-fill",
+    )
+    all_rows = chosen_long + chosen_fills
+    ids = [x["id"] for x in all_rows]
+    if len(ids) != len(set(ids)):
+        raise RuntimeError("Duplicate E-GMD performance across strata")
+    if len({x["drummer"] for x in all_rows}) < min_drummers:
+        raise RuntimeError("Selection lacks minimum independent drummer coverage")
+    return all_rows
+
+
 def selection_summary(rows: list[dict]) -> dict:
     if not rows:
         raise ValueError("Cannot describe an empty performance selection.")
