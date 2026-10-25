@@ -160,8 +160,48 @@ class HatValidationTests(unittest.TestCase):
             self.assertEqual(set(report["summary_by_preset"]), set(PRESETS))
             self.assertEqual(report["summary_by_preset"]["baseline"]["closed_hi_hat"]["tp"], 3)
             self.assertEqual(report["summary_by_preset"]["baseline"]["closed_hi_hat"]["fn"], 0)
-            self.assertEqual(report["recommendation"]["status"], "retain_baseline")
+            self.assertEqual(report["recommendation"]["status"], "insufficient_validation_coverage")
+            self.assertEqual(report["negative_control"]["song_count"], 0)
             # Synthetic fixture only; never imply this is an official E-GMD result.
+
+    def test_six_song_no_hat_negative_control_is_not_assumed_safe(self):
+        base = midi((42, 0.25), (38, 0.65))
+        records = [
+            {"song_id": f"validation-{i}", "wav": f"validation-{i}", "truth": base}
+            for i in range(6)
+        ]
+        def mock_transcriber(wav, *, hat_config):
+            return midi((42, 0.25), (38, 0.65)), {}
+        out = evaluate_validation_pairs(records, transcriber=mock_transcriber)
+        self.assertEqual(out["sample_count"], 6)
+        self.assertEqual(out["negative_control"]["song_count"], 0)
+        self.assertEqual(out["recommendation"]["status"],
+                         "needs_no_closed_hat_negative_control")
+
+    def test_negative_control_fails_candidate_with_new_false_hat_notes(self):
+        records = [{
+            "song_id": "control", "wav": "control",
+            "truth": midi((38, 0.25)),
+        }]
+        ten_hats = [(42, 0.2 + j * 0.13) for j in range(10)]
+        for i in range(5):
+            records.append({
+                "song_id": f"validation-{i}", "wav": f"validation-{i}",
+                "truth": midi(*ten_hats),
+            })
+        def mock_transcriber(wav, *, hat_config):
+            if wav == "control":
+                if hat_config == PRESETS["baseline"]:
+                    return midi(), {}
+                return midi((42, 0.65)), {}
+            visible = 3 if hat_config == PRESETS["baseline"] else 7
+            return midi(*ten_hats[:visible]), {}
+        out = evaluate_validation_pairs(records, transcriber=mock_transcriber)
+        self.assertEqual(out["negative_control"]["song_count"], 1)
+        self.assertEqual(out["negative_control"]["false_gm42_predictions_by_preset"]["baseline"], 0)
+        self.assertEqual(out["negative_control"]["false_gm42_predictions_by_preset"]["conservative"], 1)
+        self.assertEqual(out["recommendation"]["status"],
+                         "negative_control_failure_retain_baseline")
 
     def test_precision_gate_prevents_false_positives_from_winning(self):
         base = {"closed_hi_hat": score(3, 0, 7), "total": score(10, 2, 10)}
