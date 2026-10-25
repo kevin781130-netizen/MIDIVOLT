@@ -1,0 +1,51 @@
+name: MIDIVOLT E-GMD Diverse Metadata Preview
+
+# Offline model selection. Downloads only official small CSV, not 90GB ZIP.
+# One-off commit trigger: [egmd-plan-once]; default-push jobs are skipped.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/benchmark-foundation
+
+permissions:
+  contents: read
+
+jobs:
+  diversity-plan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[egmd-plan-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out MIDIVOLT
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Lightweight official metadata dependencies
+        run: python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3"
+
+      - name: Choose diverse official Test performances without extracting audio
+        run: |
+          python -m scripts.egmd_mini_real \
+            --output /tmp/midivolt-egmd-plan \
+            --max-samples 6 \
+            --min-duration 8 \
+            --max-duration 35 \
+            --min-drummers 3 \
+            --plan-only \
+            --research-only
+
+      - name: Upload metadata selection JSON only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-egmd-diversity-plan
+          path: |
+            /tmp/midivolt-egmd-plan/selection_plan.json
+            /tmp/midivolt-egmd-plan/research_error.json
+          if-no-files-found: warn
+          retention-days: 14
