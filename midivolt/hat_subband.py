@@ -72,7 +72,9 @@ def _subband_peaks(
     background = ndimage.median_filter(flux, size=window, mode="nearest")
     deviation = ndimage.median_filter(np.abs(flux - background), size=window, mode="nearest")
     floor = max(float(positive.max()) * cfg.global_floor_fraction,
-                float(np.percentile(positive, 25)) * 0.75)
+                # Use a LOW global floor: the earlier 25th percentile
+                # was biased upward by a loud attack in sparse passages.
+                float(np.percentile(positive, 10)) * 0.30)
     threshold = np.maximum(background + cfg.mad_multiplier * 1.4826 * deviation, floor)
     # Measure local attack contrast against background, NOT the threshold
     # floor. The floor may be dominated by an earlier loud hat, while the
