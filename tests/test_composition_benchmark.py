@@ -243,3 +243,146 @@ def test_failed_preflight_yields_report_without_claiming_model_calls(tmp_path, m
     assert result["cases_failed"] == 1
     assert not (args["output_dir"] / "piano_a.acceptance.json").exists()
     assert not provider.calls
+
+
+
+# K14 tests re-use the same synthetic K8 engine fixture; all records remain
+# synthetic, and a passing replay NEVER proves actual model execution.
+from midivolt.composition_verification import verify_benchmark_evidence
+from midivolt.composition_verification_cli import main as verify_cli_main
+
+
+def test_k14_replays_real_midi_and_case_metrics_without_model_execution(tmp_path, monkeypatch):
+    args, provider = setup(tmp_path, monkeypatch)
+    benchmark.run_composition_benchmark(**args)
+    before_calls = len(provider.calls)
+    output = tmp_path / "verification01"
+    report = verify_benchmark_evidence(args["output_dir"] / "benchmark.json",
+                                       output_dir=output)
+    assert report["cases_checked"] == 2
+    assert report["cases_accepted"] == 2
+    assert report["cases_rejected"] == 0
+    assert report["file_and_metric_replay_consistent"] is True
+    assert report["all_cases_accepted"] is True
+    assert report["external_model_execution_independently_verified"] is False
+    assert report["cubase_application_verified"] is False
+    assert report["commercial_release_ready"] is False
+    assert len(list(output.glob("*.audit.json"))) == 2
+    assert json.loads((output / "verification.json").read_text()) == report
+    assert len(provider.calls) == before_calls
+
+
+def test_k14_replays_partial_failure_but_never_calls_it_full_pass(tmp_path, monkeypatch):
+    args, provider = setup(tmp_path, monkeypatch)
+    provider.fail_violin = True
+    result = benchmark.run_composition_benchmark(**args)
+    assert result["cases_failed"] == 1
+    summary = verify_benchmark_evidence(
+        args["output_dir"] / "benchmark.json", output_dir=tmp_path / "verified"
+    )
+    assert summary["file_and_metric_replay_consistent"] is True
+    assert summary["cases_accepted"] == 1
+    assert summary["cases_rejected"] == 1
+    assert summary["all_cases_accepted"] is False
+    assert summary["full_suite_completed"] is True
+    assert not summary["commercial_release_ready"]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("cases_passed", 99),
+    ("model_calls_observed", 100),
+    ("whole_case_success_rate", 0.0),
+    ("model_call_duration_p95_seconds", 999.0),
+    ("complete_case_role_pass_rate", 0.0),
+    ("model_execution_independently_attested", True),
+    ("commercial_release_ready", True),
+])
+def test_k14_rejects_manipulated_aggregate_before_final_report(tmp_path, monkeypatch, field, value):
+    args, _ = setup(tmp_path, monkeypatch)
+    benchmark.run_composition_benchmark(**args)
+    manifest = args["output_dir"] / "benchmark.json"
+    data = json.loads(manifest.read_text())
+    data[field] = value
+    manifest.write_text(json.dumps(data))
+    out = tmp_path / "verified"
+    with pytest.raises(ValueError):
+        verify_benchmark_evidence(manifest, output_dir=out)
+    assert not (out / "verification.json").exists()
+
+
+def test_k14_rejects_forged_midi_hash_even_if_benchmark_summary_says_pass(tmp_path, monkeypatch):
+    args, _ = setup(tmp_path, monkeypatch)
+    benchmark.run_composition_benchmark(**args)
+    report = args["output_dir"] / "benchmark.json"
+    data = json.loads(report.read_text())
+    data["cases"][0]["candidate_sha256"] = "0" * 64
+    report.write_text(json.dumps(data))
+    out = tmp_path / "verified"
+    with pytest.raises(ValueError, match="MIDI hashes"):
+        verify_benchmark_evidence(report, output_dir=out)
+    assert not (out / "verification.json").exists()
+
+
+def test_k14_rejects_tampered_underlying_candidate(tmp_path, monkeypatch):
+    import mido
+    args, _ = setup(tmp_path, monkeypatch)
+    benchmark.run_composition_benchmark(**args)
+    candidate = args["output_dir"] / "piano_a.mid"
+    midi = mido.MidiFile(candidate)
+    for track in midi.tracks:
+        first = next((n for n in track if n.type == "note_on" and n.velocity > 0), None)
+        if first:
+            first.note = min(first.note + 1, 127)
+            break
+    midi.save(candidate)
+    with pytest.raises(ValueError, match="changed since proposal"):
+        verify_benchmark_evidence(
+            args["output_dir"] / "benchmark.json", output_dir=tmp_path / "verified"
+        )
+    assert not (tmp_path / "verified" / "verification.json").exists()
+
+
+def test_k14_k12_doctor_provenance_mismatch_fails_closed(tmp_path, monkeypatch):
+    args, _ = setup(tmp_path, monkeypatch)
+    benchmark.run_composition_benchmark(**args)
+    doctor = tmp_path / "doctor.json"
+    doctor.write_text(json.dumps({
+        "kind": "midivolt_k12_text2midi_preinference_doctor",
+        "ready_for_inference_attempt": True,
+        "commercial_release_ready": False,
+        "runtime": {"third_party_packages_imported": True},
+        "checkpoint_sha256": "0" * 64,
+        "vocab_sha256": args["vocab_sha256"],
+        "upstream_commit": "a" * 40,
+        "requirements_sha256": "b" * 64,
+    }))
+    with pytest.raises(ValueError, match="K12/K8 model provenance mismatch"):
+        verify_benchmark_evidence(
+            args["output_dir"] / "benchmark.json",
+            doctor_report=doctor, output_dir=tmp_path / "verified"
+        )
+    assert not (tmp_path / "verified" / "verification.json").exists()
+
+
+def test_k14_cli_exits_three_for_verified_but_failed_suite(tmp_path, monkeypatch, capsys):
+    args, provider = setup(tmp_path, monkeypatch)
+    provider.fail_violin = True
+    benchmark.run_composition_benchmark(**args)
+    code = verify_cli_main([
+        "--benchmark", str(args["output_dir"] / "benchmark.json"),
+        "--out-dir", str(tmp_path / "verified"),
+    ])
+    assert code == 3
+    assert '"all_cases_accepted": false' in capsys.readouterr().out
+
+
+def test_k14_prevents_reuse_of_existing_result_directory(tmp_path, monkeypatch):
+    args, _ = setup(tmp_path, monkeypatch)
+    benchmark.run_composition_benchmark(**args)
+    report = args["output_dir"] / "benchmark.json"
+    out = tmp_path / "verified"
+    verify_benchmark_evidence(report, output_dir=out)
+    original = (out / "verification.json").read_bytes()
+    with pytest.raises(FileExistsError, match="NEW"):
+        verify_benchmark_evidence(report, output_dir=out)
+    assert (out / "verification.json").read_bytes() == original
