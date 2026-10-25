@@ -23,6 +23,30 @@ planned distribution/deployment topology.
 Do not confuse it with ADTOF: upstream ADTOF uses noncommercial terms,
 so it is not an eligible drop-in commercial alternative.
 
+
+## Confirmed reduced-vocabulary issue (2026-10-25)
+
+Actual pinned upstream code uses an internal reduced percussion taxonomy
+(`utils/mapping_utils.py`). Its tokenizer decoder emits those internal
+codes directly when `ADTOF_mapping` is false, and `save_midi` does not
+invert them to full GM. The pinned tau=0.8 training source declares
+`tokenizer.ADTOF_mapping: false`; verify the downloaded checkpoint's
+config independently before new evaluation.
+
+- Vendor 35 and 36 represent separate Kick classes (both real kicks).
+- Vendor 58 means **Claves**, NOT full GM58 Vibraslap and NOT GM43 Tom.
+- Several hats, rides, crashes and toms have vendor-specific numeric
+  positions or merged classes.
+
+Six-song exact numeric-label results remain unchanged for audit history,
+but are NOT an apples-to-apples GM performance comparison:
+[read full paired-onset evidence](../benchmark/EGMD_GM35_ONSET_REPLAY_RESULTS_2026-10-25.md).
+
+The research-only ADT_STR adapter now writes diagnostic metadata
+`pitch_namespace: adt_str_vendor_custom_drum_classes` and
+`standard_gm_output: false`, so callers cannot silently assume MIDI
+interoperability. No automatic MIDI remapping is performed.
+
 ## Two selectable drum engines
 
 - **dsp**: no third-party model weights. Existing local Kick/Snare/Closed Hi-hat
@@ -67,16 +91,25 @@ PyTorch can be computationally expensive, so set proper hardware limits.
       --tempo 138 \
       --drum-engine dsp
 
-Drum MIDI files from the two output directories have the same basename;
-both are marked GM percussion and have separate tracks in
-MIDIVOLT_multitrack.mid. All WAVs must start at exactly the same
-time origin, and neither model's note times are quantized.
+Drum MIDI files have the same basename and are written with
+`is_drum=True`, **which is NOT proof they use the same note-number
+vocabulary**. DSP produces standard GM pitches. The pinned ADT_STR
+source uses a reduced custom 26-class vocabulary for its tokenizer,
+so raw output can play the WRONG instrument in a GM-compliant DAW.
+Do not deliver this raw ADT_STR MIDI as a commercial GM transcription
+until an explicit, reviewed vendor-to-GM mapping has been implemented.
+Neither model's note times are intentionally quantized by MIDIVOLT.
 
 ## F1 A/B benchmark, same audio and reference MIDI
 
-The comparison scorer requires a *reference drum MIDI*, aligned with
-the actual input drum WAV. The label tracks must be GM percussion
-(is_drum=True). Example:
+**Warning: this historic scorer matches exact numeric MIDI pitches,
+not drum ontology classes.** Since pinned ADT_STR writes custom-label
+values directly to the MIDI drum track, its original exact-pitch F1
+against DSP / GM references must NOT be interpreted as a fair
+model-ranking metric. Matching `is_drum=True` does not fix the
+namespace mismatch. The following legacy invocation is suitable only
+for inspecting old diagnostic scores; a new ontology-aligned protocol
+is required before a fair comparison.
 
     python -m midivolt.compare_drums \
       --reference ./ground_truth/Drums.mid \
