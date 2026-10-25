@@ -15,7 +15,7 @@ import hmac
 import io
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import stat
 import tempfile
@@ -68,17 +68,19 @@ def _open_safe_zip(path: Path):
         names = []
         for info in items:
             name = info.filename
-            parts = PurePosixPath(name).parts
-            if (not name or "\\" in name or name.startswith("/") or
+            raw_name = name[:-1] if info.is_dir() else name
+            # Check raw path segments: PurePosixPath normalizes "." and "//".
+            parts = raw_name.split("/")
+            if (not raw_name or "\\" in name or name.startswith("/") or
                     any(part in ("", ".", "..") for part in parts) or
-                    ":" in parts[0] or info.file_size > MAX_MEMBER):
+                    "\x00" in name or ":" in parts[0] or info.file_size > MAX_MEMBER):
                 raise ValueError("Unsafe path or oversized archive member.")
             if info.create_system == 3 and stat.S_ISLNK(info.external_attr >> 16):
                 raise ValueError("Archive may not contain symbolic links.")
             if not info.is_dir():
                 names.append(name)
-        if len(names) != len(set(names)):
-            raise ValueError("Duplicate archive member names.")
+        if len(names) != len({name.casefold() for name in names}):
+            raise ValueError("Duplicate archive member names (including Windows case-fold collisions).")
         if any(name.casefold().endswith(DANGEROUS_ASSETS) for name in names):
             raise ValueError("Distribution unexpectedly embeds a model, media, or pickle asset.")
         return archive, set(names)
@@ -218,6 +220,10 @@ def inspect_windows_zip(archive_file: str | Path, *, wheel: Path,
         missing = REQUIRED_WINDOWS - names
         if missing:
             raise ValueError("Windows ZIP missing: " + ", ".join(sorted(missing)))
+        unexpected = names - (REQUIRED_WINDOWS | {wheel.name})
+        if unexpected:
+            raise ValueError("Windows ZIP contains unexpected members: " +
+                             ", ".join(sorted(unexpected)))
         included_wheels = [name for name in names if name.endswith(".whl")]
         if included_wheels != [wheel.name]:
             raise ValueError("Windows ZIP must include exactly the inspected MIDIVOLT wheel.")
