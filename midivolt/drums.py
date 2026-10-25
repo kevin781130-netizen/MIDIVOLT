@@ -17,6 +17,7 @@ from scipy.io import wavfile
 
 from midivolt.hat_shape import HatShapeGate, hat_shape_features, FEATURE_VERSION
 from midivolt.hat_subband import HatSubbandConfig, propose_new_hat_onsets, VERSION as SUBBAND_VERSION
+from midivolt.hat_candidate_confidence import HatCandidateConfidence, VERSION as CONFIDENCE_VERSION
 
 TARGET_SR = 22050
 FFT_SIZE = 1024
@@ -125,6 +126,7 @@ def transcribe_drum_wav(
     hat_config: HatDetectionConfig | None = None,
     hat_shape_gate: HatShapeGate | None = None,
     hat_subband_config: HatSubbandConfig | None = None,
+    hat_candidate_confidence: HatCandidateConfidence | None = None,
 ) -> tuple[pretty_midi.PrettyMIDI, dict]:
     """Return drum MIDI and diagnostics, with all event times in WAV seconds.
 
@@ -140,6 +142,10 @@ def transcribe_drum_wav(
         raise ValueError("hat_shape_gate must be a HatShapeGate")
     if hat_subband_config is not None and not isinstance(hat_subband_config, HatSubbandConfig):
         raise ValueError("hat_subband_config must be a HatSubbandConfig")
+    if hat_candidate_confidence is not None and not isinstance(hat_candidate_confidence, HatCandidateConfidence):
+        raise ValueError("hat_candidate_confidence must be a HatCandidateConfidence")
+    if hat_candidate_confidence is not None and hat_subband_config is None:
+        raise ValueError("hat_candidate_confidence requires opt-in hat_subband_config")
     hat = hat_config or HatDetectionConfig()
     audio, sr = read_audio(Path(path))
     midi = pretty_midi.PrettyMIDI(initial_tempo=tempo, resolution=960)
@@ -230,6 +236,7 @@ def transcribe_drum_wav(
             magnitude, frequencies, times, audio, sr,
             [event[1] for event in events if event[0] == "hat"],
             config=hat_subband_config,
+            confidence=hat_candidate_confidence,
         )
         subband_diagnostic["enabled"] = True
         for onset, rms in extra:
@@ -258,6 +265,10 @@ def transcribe_drum_wav(
         },
         "counts": counts,
         "subband_candidates": subband_diagnostic,
+        "candidate_confidence": {
+            "enabled": hat_candidate_confidence is not None,
+            "version": CONFIDENCE_VERSION,
+        },
         "shape_gate": (
             {"enabled": True, "feature_version": FEATURE_VERSION,
              "criteria": {
