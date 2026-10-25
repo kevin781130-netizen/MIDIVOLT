@@ -30,6 +30,7 @@ from midivolt.egmd_selection import select_mixed_test_rows, selection_summary
 from midivolt.drums import transcribe_drum_wav
 from midivolt.drum_suite import _normalize_reference, _summarize
 from midivolt.compare_drums import evaluate_drums
+from midivolt.drum_label_pairs import analyze_pitch_labels
 from midivolt.alignment_qc import inspect_alignment
 
 CSV_URL = "https://storage.googleapis.com/magentadata/datasets/e-gmd/v1.0.0/e-gmd-v1.0.0.csv"
@@ -205,6 +206,7 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
                     )
                     prediction = pretty_midi.PrettyMIDI(str(predicted_path))
                 scores = evaluate_drums(truth, prediction)
+                label_audit = analyze_pitch_labels(truth, prediction)
                 failed = False
                 reason = None
             except Exception as exc:
@@ -213,6 +215,7 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
                 fallback = pretty_midi.PrettyMIDI()
                 fallback.instruments.append(pretty_midi.Instrument(program=0, is_drum=True))
                 scores = evaluate_drums(truth, fallback)
+                label_audit = analyze_pitch_labels(truth, fallback)
             seconds = time.perf_counter() - started
             measurements.append({
                 "sample_id": f"egmd_{index}",
@@ -225,6 +228,7 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
                 "failed": failed,
                 "error": reason,
                 "scores": scores,
+                "label_timing_diagnostic": label_audit,
                 "kit_name": file["kit_name"],
                 "style": file["style"],
                 "alignment_quality": info["alignment_qc"],
@@ -256,6 +260,8 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
             "No data, checkpoint or notes used for training/fine-tuning.",
             "Acoustic room microphone results cannot be inferred from electronic drumkit renderings.",
             "Research-only: model-license commercial review remains open.",
+            "GM-pitch candidate onset pairs are diagnostic; no official F1 is modified.",
+            "Potential mapping candidates require upstream decoder and schema confirmation.",
         ],
     }
 
