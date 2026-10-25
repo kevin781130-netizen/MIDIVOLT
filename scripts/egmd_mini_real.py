@@ -30,6 +30,10 @@ from midivolt.egmd_selection import select_mixed_test_rows, selection_summary
 from midivolt.drums import transcribe_drum_wav
 from midivolt.drum_suite import _normalize_reference, _summarize
 from midivolt.compare_drums import evaluate_drums
+from midivolt.drum_ontology import (
+    ONTOLOGY_ID, mapping_sha256, evaluate_common_ontology,
+    summarize_ontology, require_custom_checkpoint,
+)
 from midivolt.drum_label_pairs import analyze_pitch_labels
 from midivolt.alignment_qc import inspect_alignment
 
@@ -174,6 +178,9 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
         str(local["model.safetensors"].parent.parent),
         variant=VARIANT, device="cpu",
     )
+    # This must be checked on the REAL loaded checkpoint, not inferred from
+    # training-source defaults or from model names.
+    checkpoint_vocab = require_custom_checkpoint(model)
     model_load_seconds = time.perf_counter() - loaded
     measurements = []
     for index, file in enumerate(files):
@@ -206,6 +213,10 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
                     )
                     prediction = pretty_midi.PrettyMIDI(str(predicted_path))
                 scores = evaluate_drums(truth, prediction)
+                common_scores = evaluate_common_ontology(
+                    truth, prediction,
+                    prediction_namespace="gm" if engine == "dsp" else "adt_str_custom",
+                )
                 label_audit = analyze_pitch_labels(truth, prediction)
                 failed = False
                 reason = None
@@ -215,6 +226,10 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
                 fallback = pretty_midi.PrettyMIDI()
                 fallback.instruments.append(pretty_midi.Instrument(program=0, is_drum=True))
                 scores = evaluate_drums(truth, fallback)
+                common_scores = evaluate_common_ontology(
+                    truth, fallback,
+                    prediction_namespace="gm" if engine == "dsp" else "adt_str_custom",
+                )
                 label_audit = analyze_pitch_labels(truth, fallback)
             seconds = time.perf_counter() - started
             measurements.append({
@@ -227,7 +242,8 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
                 "duration_seconds": duration,
                 "failed": failed,
                 "error": reason,
-                "scores": scores,
+                "scores": scores,  # Legacy exact numeric-label evidence, unchanged
+                "ontology_scores": common_scores,
                 "label_timing_diagnostic": label_audit,
                 "kit_name": file["kit_name"],
                 "style": file["style"],
@@ -235,6 +251,12 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
             })
     grouped = {
         engine: _summarize([item for item in measurements if item["engine"] == engine])
+        for engine in ("dsp", "adt_str")
+    }
+    fair_grouped = {
+        engine: summarize_ontology([
+            item for item in measurements if item["engine"] == engine
+        ])
         for engine in ("dsp", "adt_str")
     }
     return {
@@ -252,6 +274,14 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
             for file in files
         ],
         "performance_by_engine": grouped,
+        "performance_by_engine_ontology": fair_grouped,
+        "drum_ontology": {
+            "id": ONTOLOGY_ID,
+            "mapping_sha256": mapping_sha256(),
+            "source_commit": SOURCE_REVISION,
+            "checkpoint_tokenizer": checkpoint_vocab,
+            "note": "Fair reduced 26-class scores, not full-GM pitch or DAW export accuracy",
+        },
         "samples": measurements,
         "caveats": [
             "This is a small one-off test subset selected from the official held-out TEST split.",
@@ -262,6 +292,9 @@ def evaluate_wavs(files: list[dict], output: Path, *, adt_root: Path, model_revi
             "Research-only: model-license commercial review remains open.",
             "GM-pitch candidate onset pairs are diagnostic; no official F1 is modified.",
             "Potential mapping candidates require upstream decoder and schema confirmation.",
+            "Original exact numeric-pitch scores are retained for reproducibility but do not form a fair cross-model comparison.",
+            "New ontology scores collapse only the fixed upstream published drum categories for BOTH engines and the reference.",
+            "No original WAV/MIDI, raw model notes, or legacy F1 values were modified.",
         ],
     }
 
