@@ -15,6 +15,8 @@ import pretty_midi
 from scipy import signal
 from scipy.io import wavfile
 
+from midivolt.hat_shape import HatShapeGate, hat_shape_features, FEATURE_VERSION
+
 TARGET_SR = 22050
 FFT_SIZE = 1024
 HOP = 256
@@ -120,6 +122,7 @@ def transcribe_drum_wav(
     tempo: float = 120.0,
     min_peak_fraction: float = 0.09,
     hat_config: HatDetectionConfig | None = None,
+    hat_shape_gate: HatShapeGate | None = None,
 ) -> tuple[pretty_midi.PrettyMIDI, dict]:
     """Return drum MIDI and diagnostics, with all event times in WAV seconds.
 
@@ -131,6 +134,8 @@ def transcribe_drum_wav(
         raise ValueError("min_peak_fraction must be finite and 0.01..0.8")
     if hat_config is not None and not isinstance(hat_config, HatDetectionConfig):
         raise ValueError("hat_config must be a HatDetectionConfig")
+    if hat_shape_gate is not None and not isinstance(hat_shape_gate, HatShapeGate):
+        raise ValueError("hat_shape_gate must be a HatShapeGate")
     hat = hat_config or HatDetectionConfig()
     audio, sr = read_audio(Path(path))
     midi = pretty_midi.PrettyMIDI(initial_tempo=tempo, resolution=960)
@@ -148,6 +153,8 @@ def transcribe_drum_wav(
     magnitude = np.abs(stft)
     events = []
     ignored = 0
+    shape_rejected = 0
+    shape_accepted = 0
 
     for kind, (lo, hi) in FLUX_BANDS.items():
         band = magnitude[(frequencies >= lo) & (frequencies < hi)]
@@ -180,6 +187,18 @@ def transcribe_drum_wav(
             if not _accept(kind, shares, hat):
                 ignored += 1
                 continue
+            # Optional shape gate runs ONLY on Hi-hat candidates. Existing
+            # Kick/Snare decisions are byte-for-byte equivalent to DSP v1.
+            if kind == "hat" and hat_shape_gate is not None:
+                shape = hat_shape_features(
+                    magnitude, frequencies, int(i),
+                    hop_seconds=HOP / sr, config=hat_shape_gate,
+                )
+                if not shape["accepted"]:
+                    shape_rejected += 1
+                    ignored += 1
+                    continue
+                shape_accepted += 1
             # Exclude tiny events amid strong background/silence.
             start = max(0, round(onset * sr))
             stop = min(len(audio), start + round(0.07 * sr))
@@ -221,6 +240,16 @@ def transcribe_drum_wav(
             "min_rms": hat.min_rms,
         },
         "counts": counts,
+        "shape_gate": (
+            {"enabled": True, "feature_version": FEATURE_VERSION,
+             "criteria": {
+                 "min_flatness": hat_shape_gate.min_flatness,
+                 "min_attack_contrast": hat_shape_gate.min_attack_contrast,
+                 "max_tail_ratio": hat_shape_gate.max_tail_ratio,
+             }, "accepted_candidates": shape_accepted,
+             "rejected_candidates": shape_rejected}
+            if hat_shape_gate else {"enabled": False}
+        ),
         "detected": len(events),
         "ignored_candidates": ignored,
         "duration_seconds": round(duration, 6),
