@@ -16,6 +16,10 @@ import math
 import numpy as np
 from scipy import ndimage, signal
 
+from midivolt.hat_candidate_confidence import (
+    HatCandidateConfidence, evaluate_candidate_confidence, VERSION as CONFIDENCE_VERSION,
+)
+
 
 VERSION = "hat-dual-subband-candidates-r1-20261025"
 SUBBANDS = ((5200.0, 7500.0), (7500.0, 10500.0))
@@ -98,6 +102,7 @@ def propose_new_hat_onsets(
     existing_hat_onsets: list[float] | tuple[float, ...],
     *,
     config: HatSubbandConfig,
+    confidence: HatCandidateConfidence | None = None,
 ) -> tuple[list[tuple[float, float]], dict]:
     """Return [(seconds, rms)] of ONLY genuinely new optional GM42 events.
 
@@ -112,6 +117,8 @@ def propose_new_hat_onsets(
     pcm = np.asarray(audio)
     if not isinstance(config, HatSubbandConfig):
         raise ValueError("HatSubbandConfig required")
+    if confidence is not None and not isinstance(confidence, HatCandidateConfidence):
+        raise ValueError("confidence must be HatCandidateConfidence")
     if (spec.ndim != 2 or hz.ndim != 1 or time.ndim != 1
             or spec.shape != (len(hz), len(time))):
         raise ValueError("Expected STFT [frequency, frame] and aligned time axis")
@@ -138,7 +145,9 @@ def propose_new_hat_onsets(
     accepted = []
     used_b: set[int] = set()
     rejects = {"unpaired_subband": 0, "existing_hat": 0,
-               "spectral_nonhat": 0, "quiet_event": 0, "new_hat_spacing": 0}
+               "spectral_nonhat": 0, "quiet_event": 0, "new_hat_spacing": 0,
+               "candidate_confidence": 0}
+    confidence_reasons: dict[str, int] = {}
     max_gap = config.max_subband_gap_seconds + 1e-10
     duration = len(pcm) / sample_rate
     high = (hz >= SUBBANDS[0][0]) & (hz < SUBBANDS[-1][1])
@@ -180,9 +189,25 @@ def propose_new_hat_onsets(
         if not math.isfinite(rms) or rms < config.min_rms:
             rejects["quiet_event"] += 1
             continue
+        if confidence is not None:
+            inspected = evaluate_candidate_confidence(
+                spec, hz, peak_index, hop_seconds=hop_seconds, config=confidence,
+            )
+            if not inspected["accepted"]:
+                rejects["candidate_confidence"] += 1
+                reasons = inspected.get("blocked_by") or [inspected["reason"]]
+                for reason in reasons:
+                    confidence_reasons[reason] = confidence_reasons.get(reason, 0) + 1
+                continue
         accepted.append((onset, rms))
     return accepted, {
         "version": VERSION, "subband_peak_counts": [len(a), len(b)],
         "new_candidates": len(accepted), "rejected": rejects,
         "does_not_modify_original_events": True,
+        "candidate_confidence": {
+            "enabled": confidence is not None,
+            "version": CONFIDENCE_VERSION,
+            "rejected": rejects["candidate_confidence"],
+            "reason_counts": confidence_reasons,
+        },
     }
