@@ -111,8 +111,9 @@ def test_rejects_zip_slip_or_duplicate_zip_members(tmp_path):
     with pytest.raises(ValueError, match="Unsafe path"):
         inspect_wheel(p)
     p = synthetic_wheel(tmp_path)
-    with zipfile.ZipFile(p, "a") as z:
-        z.writestr("midivolt/cli.py", b"duplicate", compress_type=zipfile.ZIP_DEFLATED)
+    with pytest.warns(UserWarning, match="Duplicate name"):
+        with zipfile.ZipFile(p, "a") as z:
+            z.writestr("midivolt/cli.py", b"duplicate", compress_type=zipfile.ZIP_DEFLATED)
     with pytest.raises(ValueError, match="Duplicate archive"):
         inspect_wheel(p)
 
