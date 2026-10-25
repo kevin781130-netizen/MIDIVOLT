@@ -65,8 +65,6 @@ def hat_shape_features(
         raise ValueError("frame_index outside available signal")
     if not math.isfinite(hop_seconds) or hop_seconds <= 0:
         raise ValueError("hop_seconds must be positive and finite")
-    if not np.isfinite(mag).all() or np.any(mag < 0):
-        raise ValueError("Nonfinite or negative spectral magnitudes")
     if not isinstance(config, HatShapeGate):
         raise ValueError("config must be a HatShapeGate")
 
@@ -82,10 +80,17 @@ def hat_shape_features(
     tail_to = max(tail_from + 1, round(0.150 / hop_seconds))
     if frame + tail_to > mag.shape[1]:
         return {"accepted": False, "reason": "insufficient_decay_window"}
-    power = np.square(mag[high_band, :].astype(np.float64, copy=False))
-    early = power[:, frame:frame + attack_n]
-    before = power[:, max(0, frame - pre_n):frame]
-    tail = power[:, frame + tail_from:frame + tail_to]
+    # Validate and process ONLY the local high-band STFT patch, never the
+    # entire song at every detected peak (avoids quadratic scan cost).
+    pre_start = max(0, frame - pre_n)
+    local = mag[high_band, pre_start:frame + tail_to]
+    if not np.isfinite(local).all() or np.any(local < 0):
+        raise ValueError("Nonfinite or negative spectral magnitudes")
+    power = np.square(local.astype(np.float64, copy=False))
+    at = frame - pre_start
+    early = power[:, at:at + attack_n]
+    before = power[:, :at]
+    tail = power[:, at + tail_from:at + tail_to]
     eps = 1e-14
     attack_energy = float(np.mean(np.sum(early, axis=0)))
     if attack_energy <= eps:
