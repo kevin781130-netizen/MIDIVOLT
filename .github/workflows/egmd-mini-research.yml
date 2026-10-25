@@ -1,0 +1,81 @@
+name: MIDIVOLT E-GMD Mini Real-Performance Research
+
+# Deliberately NOT part of every-commit CI. CPU model and huge remote ZIP
+# require an explicit one-off trigger. No third-party datasets are uploaded.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/benchmark-foundation
+
+permissions:
+  contents: read
+
+jobs:
+  egmd-mini:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[egmd-real-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DATA_DIR: /tmp/midivolt-egmd-mini
+      ADT_ROOT: /tmp/MIDIVOLT_ADT_STR
+      SOURCE_REVISION: 77dbef225e7029478ebfb916f20c7a00274f0f12
+      HF_HUB_DISABLE_TELEMETRY: '1'
+    steps:
+      - name: Check out MIDIVOLT
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install lightweight MIDI and remote-ZIP dependencies
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3" "remotezip>=0.12,<1"
+
+      - name: Check official 90GB ZIP supports safe byte-range reads
+        run: |
+          python -c "from scripts.egmd_mini_real import preflight_ranges, ZIP_URL; print('ZIP bytes:',preflight_ranges(ZIP_URL))"
+
+      - name: Install pinned PyTorch CPU runtime
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.8.0" "torchaudio==2.8.0"
+
+      - name: Install pinned ADT_STR inference dependencies
+        run: |
+          python -m pip install "huggingface_hub>=0.35,<1" \
+            "transformers>=4.44,<5" "omegaconf>=2.3,<3" \
+            "safetensors>=0.4,<1" "soundfile>=0.12,<1" \
+            "torchcodec>=0.7,<0.8"
+
+      - name: Fetch exact audited upstream source revision
+        run: |
+          git clone --filter=blob:none https://github.com/pier-maker92/ADT_STR.git "$ADT_ROOT"
+          git -C "$ADT_ROOT" fetch --depth=1 origin "$SOURCE_REVISION"
+          git -C "$ADT_ROOT" checkout --detach "$SOURCE_REVISION"
+          test "$(git -C "$ADT_ROOT" rev-parse HEAD)" = "$SOURCE_REVISION"
+
+      - name: Extract bounded official E-GMD test WAV MIDI and benchmark models
+        run: |
+          python -m scripts.egmd_mini_real \
+            --output "$DATA_DIR" \
+            --upstream-root "$ADT_ROOT" \
+            --max-samples 3 \
+            --max-duration 22 \
+            --max-entry-mb 28 \
+            --research-only
+
+      - name: Upload scores and provenance only (NEVER dataset or model)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-egmd-mini-research-results
+          path: |
+            /tmp/midivolt-egmd-mini/selection_plan.json
+            /tmp/midivolt-egmd-mini/research_metrics.json
+            /tmp/midivolt-egmd-mini/research_error.json
+          if-no-files-found: warn
+          retention-days: 14
