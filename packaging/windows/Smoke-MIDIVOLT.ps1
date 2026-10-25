@@ -41,8 +41,15 @@ try {
                                    "--out", $cubase, "--ppq", "480")
     Invoke-CLI "midivolt-cubase" @("compare", "--reference", $approved,
                                    "--returned", $cubase, "--strict")
+    # Verify every K1-K11 shipped entry point is installed and imports.
+    # --help never downloads weights, contacts Hugging Face or starts Cubase.
     foreach ($extra in @("midivolt-model", "midivolt-env", "midivolt-accept",
-                          "midivolt-tsov", "midivolt-bridge")) {
+                          "midivolt-tsov", "midivolt-bridge",
+                          "midivolt-compose", "midivolt-compose-accept",
+                          "midivolt-compose-audit", "midivolt-compose-doctor",
+                          "midivolt-compose-benchmark", "midivolt-compose-verify",
+                          "midivolt-beta-gate",
+                          "midivolt-plan", "midivolt-transcribe", "midivolt-evaluate")) {
         Invoke-CLI $extra @("--help")
     }
     if (-not (Test-Path -LiteralPath $cubase -PathType Leaf)) {
