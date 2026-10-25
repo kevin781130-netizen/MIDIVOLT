@@ -80,15 +80,37 @@ computed. The generated file
 with `rights.status=pending` and
 `rights.research_evaluation_allowed=false`.
 
-The evaluator will **not run** until an authorized human rights
-reviewer checks the official CC BY 4.0 source/attribution,
-the recording/MIDI permissions, then explicitly changes both fields,
-providing their real reviewer identity.
+By default the evaluator will **not run** until a human reviewer explicitly
+approves the recorded WAV/MIDI rights. For an INTERNAL RESEARCH-ONLY study of
+this exact official E-GMD release, an alternate explicit option records a
+limited automated review against the dataset publisher's CC BY 4.0 declaration:
+
+    python -m scripts.egmd_hat_prepare \
+      --csv ./private_e_gmd/e-gmd-v1.0.0.csv \
+      --output ./private_e_gmd/hat_validation \
+      --count 6 --fills 2 --extract-range \
+      --official-cc-by-research-review
+
+This produces a separate
+`validation_manifest_SOURCE_LICENSE_REVIEWED.json` with
+`rights.research_evaluation_allowed=true` but
+`rights.commercial_benchmark_allowed=false`,
+`legal_clearance_for_product_distribution=false` and a transparent
+`automated official source-license verification` reviewer label.
+**It does not pretend a human legal review occurred.** No dataset/media
+or third-party model rights are certified for redistribution.
+
+Official source (E-GMD v1.0.0, Google LLC, CC BY 4.0):
+https://magenta.withgoogle.com/datasets/e-gmd#license
+Attribution: Callender, Hawthorne & Engel (2020),
+`Improving Perceptual Quality of Drum Transcription with the Expanded
+Groove MIDI Dataset`.
+
 
 Run approved local files:
 
     python -m midivolt.hat_validation \
-      --manifest ./private_e_gmd/hat_validation/validation_manifest.json \
+      --manifest ./private_e_gmd/hat_validation/validation_manifest_SOURCE_LICENSE_REVIEWED.json \
       --output ./private_e_gmd/hat_validation/results.json
 
 Output stays in the private folder; do NOT upload third-party WAV,
