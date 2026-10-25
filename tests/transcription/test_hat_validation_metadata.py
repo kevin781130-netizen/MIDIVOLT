@@ -87,6 +87,64 @@ class HatValidationMetadataTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "selection sizes"):
             choose_validation_metadata(rows(), count=6, short_fill_count=6)
 
+    def test_source_license_review_is_explicit_and_never_commercial_approval(self):
+        from unittest.mock import patch
+
+        def fake_extract(_url, selected, folder, *, max_entry_mb):
+            folder.mkdir(parents=True, exist_ok=True)
+            result = []
+            for i, row in enumerate(selected):
+                wav = folder / f"recording_{i:02d}.wav"
+                ref = folder / f"recording_{i:02d}.mid"
+                wav.write_bytes(b"mock-synthetic-wav-" + str(i).encode())
+                ref.write_bytes(b"mock-synthetic-midi-" + str(i).encode())
+                import hashlib
+                result.append({
+                    "source_song_id": row["id"],
+                    "source_split": row["split"],
+                    "kit_name": row["kit_name"],
+                    "style": row["style"],
+                    "bpm": float(row["bpm"]),
+                    "wav": str(wav),
+                    "midi": str(ref),
+                    "wav_sha256": hashlib.sha256(wav.read_bytes()).hexdigest(),
+                    "midi_sha256": hashlib.sha256(ref.read_bytes()).hexdigest(),
+                })
+            return result
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            csv_file = root / "official.csv"
+            with csv_file.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=FIELDS)
+                writer.writeheader()
+                writer.writerows(rows())
+            with patch("scripts.egmd_mini_real.preflight_ranges", return_value=1000), patch(
+                "scripts.egmd_mini_real.acquire_selected", side_effect=fake_extract
+            ):
+                pending = prepare(csv_file, root / "pending", extract_range=True)
+                self.assertFalse(pending["benchmark_execution_allowed"])
+                self.assertFalse(pending["independent_legal_clearance"])
+                self.assertTrue(Path(pending["manifest"]).is_file())
+
+                reviewed = prepare(
+                    csv_file, root / "reviewed", extract_range=True,
+                    official_cc_by_research_review=True,
+                )
+                self.assertTrue(reviewed["benchmark_execution_allowed"])
+                self.assertFalse(reviewed["independent_legal_clearance"])
+                manifest_data = json.loads(Path(reviewed["manifest"]).read_text())
+                self.assertEqual(len(manifest_data["samples"]), 6)
+                self.assertFalse(
+                    manifest_data["license_verification"]["legal_clearance_for_product_distribution"]
+                )
+                self.assertTrue(all(
+                    s["rights"]["research_evaluation_allowed"]
+                    and not s["rights"]["commercial_benchmark_allowed"]
+                    and "automated" in s["rights"]["reviewer"]
+                    for s in manifest_data["samples"]
+                ))
+
     def test_csv_plan_is_metadata_only_and_does_not_fetch_wav(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
