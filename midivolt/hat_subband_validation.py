@@ -18,7 +18,7 @@ from midivolt.hat_validation import _aggregate, CUT21_VALIDATION_SONG_IDS
 from midivolt.hat_shape_ablation import CUT23_SONG_IDS
 from midivolt.drum_ontology import evaluate_common_ontology
 
-STUDY_REVISION = "dual-subband-candidate-validation-24-v1"
+STUDY_REVISION = "dual-subband-candidate-validation-24-v2-metadata-duration"
 EXCLUDED_PREVIOUS_SONG_IDS = CUT21_VALIDATION_SONG_IDS | CUT23_SONG_IDS
 PRE_REGISTERED_SAMPLE_COUNT = 24
 MIN_GM42_EVENTS = 100
