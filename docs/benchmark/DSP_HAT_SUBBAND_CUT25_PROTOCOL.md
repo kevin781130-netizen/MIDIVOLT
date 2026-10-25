@@ -50,8 +50,8 @@ scoring:
 
 - **24 distinct official E-GMD v1.0.0 Validation songs**, selected by
   metadata only, before opening sound/reference MIDI.
-- Acoustic Kit electronic-drum rendering, **16 beats + 8 fills**,
-  35 seconds max per song, at least **4 different drummers**.
+- Acoustic Kit electronic-drum rendering, **15 beats + 9 fills**,
+  **90 seconds max per song**, at least **4 different drummers**.
 - Exclude all **12 source songs** already studied in the Cut 21
   and Cut 23 official Validation cohorts.
 - No Train and no held-out Test samples. Official dataset is Google
@@ -64,6 +64,35 @@ scoring:
 - Compare per-song GM42 TP/FP/FN, aggregate precision/recall/F1,
   all-drum precision/recall/F1 and runtime. Keep source WAV/MIDI
   SHA-256 and independent drummer counts, but NEVER upload raw media.
+
+
+### Metadata-only revision (before any model score)
+
+The initial 35-second proposed sample window could NOT be executed:
+only 2 official Validation Beat performances remained after excluding
+the 12 previously used source songs, versus 16 requested. Research job
+https://github.com/kevin781130-netizen/MIDIVOLT/actions/runs/40199497788
+stopped in metadata selection; **no WAV inference or F1 results existed**.
+
+A separate metadata-only probe
+https://github.com/kevin781130-netizen/MIDIVOLT/actions/runs/40199652986
+verified (Acoustic Kit, excluding those same 12 source IDs):
+
+| Maximum duration | Eligible Beat | Eligible Fill |
+|---|---:|---:|
+| 35s | 2 | 69 |
+| 45s | 7 | 69 |
+| 60s | 13 | 69 |
+| 90s | 15 | 69 |
+| 120s | 19 | 69 |
+
+**Before looking at ANY new waveform, MIDI truth or model scores**, the
+metadata-only protocol was versioned to `dual-subband-candidate-validation-24-v2-metadata-duration`
+and set to 15 Beat + 9 Fill, each <=90s, using a new immutable seed
+`midivolt-dual-subband-fresh24-metadata-v2`.
+DSP candidate thresholds, minimum truth events, no-hat controls and
+Precision/Recall guards were NOT changed. This is a sampling feasibility
+correction, not score-driven cherry-picking.
 
 ## Frozen qualification gates
 
