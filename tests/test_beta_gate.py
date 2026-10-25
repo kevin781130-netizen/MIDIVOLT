@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from hashlib import sha256
+import base64
+import csv
+import io
 from pathlib import Path
 import json
 import tomllib
@@ -37,6 +40,17 @@ def synthetic_wheel(tmp_path, *, omit=None, extra=None, entry_override=None):
     files.pop(omit, None)
     if extra is not None:
         files.update(extra)
+    record_name = root + "/RECORD"
+    if omit != record_name:
+        lines = []
+        for name, payload in files.items():
+            digest = base64.urlsafe_b64encode(sha256(payload).digest()).rstrip(b"=").decode("ascii")
+            lines.append((name, "sha256=" + digest, str(len(payload))))
+        lines.append((record_name, "", ""))
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, lineterminator="\n")
+        writer.writerows(lines)
+        files[record_name] = output.getvalue().encode("utf-8")
     with zipfile.ZipFile(path, "w") as z:
         for name, payload in files.items():
             z.writestr(name, payload)
@@ -172,3 +186,63 @@ def test_actual_project_manifest_declares_notices_and_gate_entrypoint():
     }
     assert pyproject["project"]["scripts"]["midivolt-beta-gate"] == "midivolt.beta_gate_cli:main"
     assert (root / "THIRD_PARTY_NOTICES.md").is_file()
+
+
+def test_missing_record_or_wheel_unlisted_file_fails_closed(tmp_path):
+    record = "midivolt-0.1.0rc1.dist-info/RECORD"
+    wheel = synthetic_wheel(tmp_path, omit=record)
+    with pytest.raises(ValueError, match="missing required PEP 427 RECORD"):
+        inspect_wheel(wheel)
+    wheel = synthetic_wheel(tmp_path)
+    # Adding a file without rewriting RECORD is not a valid wheel.
+    with zipfile.ZipFile(wheel, "a") as archive:
+        archive.writestr("midivolt/unrecorded.py", b"print('injected')")
+    with pytest.raises(ValueError, match="missing or unlisted"):
+        inspect_wheel(wheel)
+
+
+def test_wheel_record_detects_changed_source_even_if_filename_and_size_same(tmp_path):
+    wheel = synthetic_wheel(tmp_path)
+    with zipfile.ZipFile(wheel, "r") as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    name = "midivolt/cli.py"
+    original = members[name]
+    members[name] = b"x" + original[1:]
+    assert len(members[name]) == len(original)
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for item, payload in members.items():
+            archive.writestr(item, payload)
+    with pytest.raises(ValueError, match="RECORD size or digest mismatch"):
+        inspect_wheel(wheel)
+
+
+def test_wheel_record_detects_wrong_sizes_and_duplicate_manifest_rows(tmp_path):
+    wheel = synthetic_wheel(tmp_path)
+    with zipfile.ZipFile(wheel, "r") as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    name = "midivolt-0.1.0rc1.dist-info/RECORD"
+    text = files[name].decode()
+    files[name] = text.replace(",sha256=", ",sha256=", 1).replace(",15\\n", ",150\\n", 1).encode()
+    # Use a reliable first Python module size mutation rather than depending
+    # on an exact line's length.
+    rows = list(csv.reader(io.StringIO(files[name].decode())))
+    for row in rows:
+        if row[0] == "midivolt/cli.py":
+            row[2] = str(int(row[2]) + 1)
+            break
+    buf = io.StringIO()
+    csv.writer(buf, lineterminator="\\n").writerows(rows)
+    files[name] = buf.getvalue().encode()
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for item, payload in files.items():
+            archive.writestr(item, payload)
+    with pytest.raises(ValueError, match="RECORD size or digest mismatch"):
+        inspect_wheel(wheel)
+
+
+def test_valid_wheel_reports_record_validation_and_no_signature_claim(tmp_path):
+    wheel = synthetic_wheel(tmp_path)
+    report = inspect_wheel(wheel)
+    assert report["wheel_record_integrity_verified"] is True
+    assert report["wheel_record_entries_verified"] >= 8
+    assert report["wheel_signature_or_publisher_trusted"] is False
