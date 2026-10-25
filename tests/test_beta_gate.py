@@ -10,7 +10,7 @@ import zipfile
 import pytest
 
 from midivolt.beta_gate import (
-    REQUIRED_CLI, inspect_beta_package, inspect_wheel, inspect_windows_zip,
+    REQUIRED_CLI, REQUIRED_TARGETS, inspect_beta_package, inspect_wheel, inspect_windows_zip,
 )
 from midivolt.beta_gate_cli import main
 
@@ -18,11 +18,7 @@ from midivolt.beta_gate_cli import main
 def synthetic_wheel(tmp_path, *, omit=None, extra=None, entry_override=None):
     path = tmp_path / "midivolt-0.1.0rc1-py3-none-any.whl"
     root = "midivolt-0.1.0rc1.dist-info"
-    scripts = {
-        name: f"midivolt.{name.replace('midivolt-', '').replace('-', '_')}_cli:main"
-        for name in REQUIRED_CLI
-    }
-    scripts["midivolt"] = "midivolt.cli:main"
+    scripts = dict(REQUIRED_TARGETS)
     if entry_override is not None:
         scripts.update(entry_override)
     modules = {
@@ -123,7 +119,7 @@ def test_rejects_zip_slip_or_duplicate_zip_members(tmp_path):
 
 def test_rejects_external_or_malformed_entrypoint(tmp_path):
     p = synthetic_wheel(tmp_path, entry_override={"midivolt-compose": "external_service:main"})
-    with pytest.raises(ValueError, match="Unsafe or unsupported CLI"):
+    with pytest.raises(ValueError, match="unexpected entry point target"):
         inspect_wheel(p)
 
 
