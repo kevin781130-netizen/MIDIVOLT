@@ -1,0 +1,50 @@
+name: MIDIVOLT Fresh 24-song Hi-hat Subband Validation
+
+# Explicit one-off research job: marker [hat-subband-real-once].
+# Only CPU DSP and official E-GMD Validation audio; no pretrained weights.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/drum-audit-20261025
+
+permissions:
+  contents: read
+
+jobs:
+  fresh-subband:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hat-subband-real-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      STUDY: /tmp/midivolt-hat-subband-24
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout frozen MIDIVOLT commit
+        uses: actions/checkout@v4
+      - name: Install Python CPU 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install only CPU/DSP/remote ZIP packages
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3" "remotezip>=0.12,<1"
+      - name: Verify new and baseline synthetic tests before real data access
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband_validation.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
+      - name: Run locked 24-song E-GMD VALIDATION A/B; no Test or Train
+        run: |
+          python -m scripts.egmd_hat_subband_real --output "$STUDY"
+      - name: Upload scores and metadata provenance only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-fresh-24-song-hi-hat-subband-results
+          path: |
+            /tmp/midivolt-hat-subband-24/validation_selection_plan.json
+            /tmp/midivolt-hat-subband-24/subband_validation_results.json
+          if-no-files-found: warn
+          retention-days: 14
