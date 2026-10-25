@@ -5,9 +5,6 @@ name: MIDIVOLT Fresh Validation Hi-hat Shape A/B
 # No ADT_STR/Basic Pitch weights, no raw media in uploaded artifacts.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
