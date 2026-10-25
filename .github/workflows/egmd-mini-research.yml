@@ -78,6 +78,7 @@ jobs:
           path: |
             /tmp/midivolt-egmd-mini/selection_plan.json
             /tmp/midivolt-egmd-mini/research_metrics.json
+            /tmp/midivolt-egmd-mini/drum_label_replay_evidence.json
             /tmp/midivolt-egmd-mini/research_error.json
           if-no-files-found: warn
           retention-days: 14
