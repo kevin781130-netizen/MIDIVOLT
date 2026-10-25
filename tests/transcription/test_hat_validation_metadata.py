@@ -145,6 +145,52 @@ class HatValidationMetadataTests(unittest.TestCase):
                     for s in manifest_data["samples"]
                 ))
 
+    def test_new_shape_selection_explicitly_excludes_previous_validation_songs(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            csv_file = root / "e-gmd-v1.0.0.csv"
+            with csv_file.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=FIELDS)
+                writer.writeheader()
+                writer.writerows(rows())
+            earlier = root / "previous_selection_plan.json"
+            earlier.write_text(json.dumps({
+                "dataset": "E-GMD v1.0.0",
+                "upstream_split": "validation",
+                "samples": [{"id": row["id"]} for row in rows()[:3]],
+            }), encoding="utf-8")
+            result = prepare(
+                csv_file, root / "fresh", count=6, fills=2,
+                exclude_plan_path=earlier,
+            )
+            self.assertEqual(result["status"], "validation_metadata_plan_created")
+            report = json.loads((root / "fresh/validation_selection_plan.json").read_text())
+            forbidden = {entry["id"] for entry in rows()[:3]}
+            actual = {entry["id"] for entry in report["samples"]}
+            self.assertTrue(forbidden.isdisjoint(actual))
+            self.assertTrue(report["excludes_previous_validation_experiments"])
+            self.assertEqual(set(report["excluded_previous_validation_source_song_ids"]), forbidden)
+
+    def test_untrusted_previous_plan_is_rejected_before_audio_access(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            csv_file = root / "e-gmd-v1.0.0.csv"
+            with csv_file.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=FIELDS)
+                writer.writeheader()
+                writer.writerows(rows())
+            previous = root / "prior.json"
+            previous.write_text(json.dumps({
+                "dataset": "E-GMD v1.0.0",
+                "upstream_split": "test",
+                "samples": [{"id": "someone/test1"}],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Excluded selection plan"):
+                prepare(
+                    csv_file, root / "fresh", count=6, fills=2,
+                    exclude_plan_path=previous,
+                )
+
     def test_csv_plan_is_metadata_only_and_does_not_fetch_wav(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
