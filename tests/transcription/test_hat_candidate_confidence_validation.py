@@ -100,9 +100,11 @@ class ConfidenceStudyTests(unittest.TestCase):
                 wav, hat_subband_config=hat_subband_config,
                 hat_candidate_confidence=hat_candidate_confidence,
             )
+            # This FP was ALREADY proposed by the raw generator.
+            # Let the filter fail to reject it; it must not invent a new note.
             if wav.endswith("song4") and hat_candidate_confidence is not None:
                 obj.instruments[0].notes.append(
-                    pretty_midi.Note(pitch=42, velocity=80, start=1.3, end=1.4)
+                    pretty_midi.Note(pitch=42, velocity=80, start=8.4, end=8.5)
                 )
             return obj, detail
         report = evaluate_confidence_study(rows, plan, transcriber=noisy)
