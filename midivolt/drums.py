@@ -16,6 +16,7 @@ from scipy import signal
 from scipy.io import wavfile
 
 from midivolt.hat_shape import HatShapeGate, hat_shape_features, FEATURE_VERSION
+from midivolt.hat_subband import HatSubbandConfig, propose_new_hat_onsets, VERSION as SUBBAND_VERSION
 
 TARGET_SR = 22050
 FFT_SIZE = 1024
@@ -123,6 +124,7 @@ def transcribe_drum_wav(
     min_peak_fraction: float = 0.09,
     hat_config: HatDetectionConfig | None = None,
     hat_shape_gate: HatShapeGate | None = None,
+    hat_subband_config: HatSubbandConfig | None = None,
 ) -> tuple[pretty_midi.PrettyMIDI, dict]:
     """Return drum MIDI and diagnostics, with all event times in WAV seconds.
 
@@ -136,6 +138,8 @@ def transcribe_drum_wav(
         raise ValueError("hat_config must be a HatDetectionConfig")
     if hat_shape_gate is not None and not isinstance(hat_shape_gate, HatShapeGate):
         raise ValueError("hat_shape_gate must be a HatShapeGate")
+    if hat_subband_config is not None and not isinstance(hat_subband_config, HatSubbandConfig):
+        raise ValueError("hat_subband_config must be a HatSubbandConfig")
     hat = hat_config or HatDetectionConfig()
     audio, sr = read_audio(Path(path))
     midi = pretty_midi.PrettyMIDI(initial_tempo=tempo, resolution=960)
@@ -218,6 +222,19 @@ def transcribe_drum_wav(
             else:
                 events.append((kind, onset, rms))
 
+    subband_diagnostic = {"enabled": False, "version": SUBBAND_VERSION, "new_candidates": 0}
+    if hat_subband_config is not None:
+        # Entirely optional NEW high-band onset path. Preserve the baseline
+        # (kick, snare and hat) events; only append independent GM42 notes.
+        extra, subband_diagnostic = propose_new_hat_onsets(
+            magnitude, frequencies, times, audio, sr,
+            [event[1] for event in events if event[0] == "hat"],
+            config=hat_subband_config,
+        )
+        subband_diagnostic["enabled"] = True
+        for onset, rms in extra:
+            events.append(("hat", onset, rms))
+
     events.sort(key=lambda item: (item[1], GM_PITCH[item[0]]))
     rms_reference = float(np.percentile([e[2] for e in events], 90)) if events else 0.0
     counts = {kind: 0 for kind in GM_PITCH}
@@ -240,6 +257,7 @@ def transcribe_drum_wav(
             "min_rms": hat.min_rms,
         },
         "counts": counts,
+        "subband_candidates": subband_diagnostic,
         "shape_gate": (
             {"enabled": True, "feature_version": FEATURE_VERSION,
              "criteria": {
