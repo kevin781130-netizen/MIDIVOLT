@@ -1,0 +1,30 @@
+name: MIDIVOLT Hi-hat Subband Unit Gate
+
+# Opt-in one-off CPU-only synthetic unit validation. No external datasets.
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/drum-audit-20261025]
+
+permissions:
+  contents: read
+
+jobs:
+  subband-unit:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hat-subband-unit-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU DSP packages
+        run: |
+          python -m pip install "numpy>=1.23,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3"
+      - name: Exercise new and baseline drum DSP
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_shape.py' -v
