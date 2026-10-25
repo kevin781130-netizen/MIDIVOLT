@@ -1,0 +1,33 @@
+name: MIDIVOLT Train-only Hat Ranker Unit Gate
+
+# One explicitly triggered CPU-only regression run. No external media,
+# checkpoints, research model weights, or pretrained neural models.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/drum-audit-20261025
+
+permissions:
+  contents: read
+
+jobs:
+  train-ranker-unit:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hat-ranker-unit-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: CPU-only dependencies, no ML checkpoint
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3"
+      - name: Verify TRAIN label safety, deterministic ranker and legacy DSP
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_hat_candidate_ranker.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_candidate_confidence.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
