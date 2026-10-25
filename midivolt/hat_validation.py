@@ -61,6 +61,7 @@ def choose_validation_metadata(
     max_duration_s: float = 35.0,
     kit_name: str = "Acoustic Kit",
     seed: str = "midivolt-hat-validation-selection-v1",
+    exclude_source_song_ids: frozenset[str] | set[str] = frozenset(),
 ) -> list[dict]:
     """Choose independent official VALIDATION performances, before WAV reading.
 
@@ -68,6 +69,8 @@ def choose_validation_metadata(
     Requesting unavailable beat/fill strata fails rather than borrowing
     official TEST or TRAIN examples.
     """
+    if any(not isinstance(x, str) or not x for x in exclude_source_song_ids):
+        raise ValueError("Exclude IDs must be non-empty strings")
     if not 2 <= count <= 24 or not 0 <= short_fill_count < count:
         raise ValueError("Invalid requested Validation beat/fill selection sizes")
     if not math.isfinite(max_duration_s) or not 1 <= max_duration_s <= 180:
@@ -83,6 +86,8 @@ def choose_validation_metadata(
             raise ValueError("Original E-GMD song ID spans train/test/validation")
         previous[identity] = split
         if split != "validation" or row.get("kit_name") != kit_name:
+            continue
+        if identity in exclude_source_song_ids:
             continue
         typ = row.get("beat_type")
         if typ not in selected:
