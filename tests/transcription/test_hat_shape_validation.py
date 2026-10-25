@@ -11,6 +11,7 @@ from midivolt.hat_shape import HatShapeGate
 from midivolt.hat_shape_validation import (
     STUDY_ARMS, study_sha256, evaluate_shape_study,
 )
+from midivolt.hat_validation import CUT21_VALIDATION_SONG_IDS
 
 
 def midi(*events):
@@ -40,9 +41,7 @@ def cohort():
         "dataset": "E-GMD v1.0.0",
         "upstream_split": "validation",
         "excludes_previous_validation_experiments": True,
-        "excluded_previous_validation_source_song_ids": [
-            "drummer3/session1/39", "drummer7/session2/102",
-        ],
+        "excluded_previous_validation_source_song_ids": sorted(CUT21_VALIDATION_SONG_IDS),
         "samples": [{"id": r["song_id"]} for r in entries],
     }
     return entries, plan
@@ -76,7 +75,7 @@ class HatShapeValidationTests(unittest.TestCase):
     def test_independent_validation_cohort_has_no_old_song_overlap(self):
         records, plan = cohort()
         report = evaluate_shape_study(records, selection_plan=plan, transcriber=good_mock)
-        self.assertEqual(report["new_cohort_proof"]["previous_validation_songs_excluded"], 2)
+        self.assertEqual(report["new_cohort_proof"]["previous_validation_songs_excluded"], 6)
         self.assertTrue(report["new_cohort_proof"]["zero_previous_songs_reused"])
         self.assertEqual(report["sample_count"], 6)
         self.assertTrue(report["official_test_partition_not_touched"])
@@ -126,7 +125,9 @@ class HatShapeValidationTests(unittest.TestCase):
 
     def test_cannot_reuse_previous_validation_song(self):
         records, plan = cohort()
-        plan["excluded_previous_validation_source_song_ids"].append("new_control")
+        prior = sorted(CUT21_VALIDATION_SONG_IDS)[0]
+        records[0]["song_id"] = prior
+        plan["samples"][0]["id"] = prior
         with self.assertRaisesRegex(ValueError, "Reused previous"):
             evaluate_shape_study(records, selection_plan=plan, transcriber=good_mock)
 
