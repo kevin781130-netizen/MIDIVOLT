@@ -171,3 +171,172 @@ def test_cli_codes_do_not_forge_beta_or_inference(monkeypatch, capsys):
         args.extend(("--" + name, "fixture"))
     assert cli_main(args) == 3
     assert '"commercial_release_ready": false' in capsys.readouterr().out
+
+
+
+# K15: these fixtures do not load pretrained weights. The fake child process
+# simulates only the runner's JSON contract for safety/dispatch testing.
+def fake_loaded_model_result():
+    return {
+        "schema_version": 1,
+        "model": "text2midi",
+        "mode": "trusted_local_load_only",
+        "model_state_dict_strict_loaded": True,
+        "local_t5_encoder_initialized": True,
+        "local_t5_tokenizer_initialized": True,
+        "remi_pickle_deserialized": True,
+        "upstream_model_code_imported": True,
+        "pretrained_inference_executed": False,
+        "midi_written": False,
+        "device_type": "cpu",
+        "torch_version": "2.5.1",
+        "vocab_size": 9000,
+        "model_parameter_count": 123456,
+        "load_wall_seconds": 0.2,
+        "pretrained_model_provenance_independently_attested": False,
+        "commercial_release_ready": False,
+    }
+
+
+def test_k15_requires_separate_consent_to_deserialize_trusted_assets(tmp_path, monkeypatch):
+    args = ready_inputs(tmp_path, monkeypatch)
+    executed = []
+    monkeypatch.setattr(doctor.subprocess, "run",
+                        lambda *a, **kw: executed.append(kw))
+    with pytest.raises(PermissionError, match="--confirm-model-load"):
+        doctor.diagnose_composition_runtime(
+            **args, confirm_model_load=True, confirm_imports=False
+        )
+    assert executed == []
+    assert not args["output_path"].exists()
+
+
+def test_k15_successful_stubbed_checkpoint_load_records_no_generation(tmp_path, monkeypatch):
+    args = ready_inputs(tmp_path, monkeypatch)
+    cmds = []
+    def run(command, **kwargs):
+        cmds.append((command, kwargs))
+        if len(cmds) == 1:
+            return SimpleNamespace(returncode=0, stdout=json.dumps(
+                stub_probe(imported=True)
+            ) + "\n")
+        assert len(cmds) == 2
+        return SimpleNamespace(returncode=0, stdout=json.dumps(
+            fake_loaded_model_result()
+        ) + "\n")
+    monkeypatch.setattr(doctor.subprocess, "run", run)
+    result = doctor.diagnose_composition_runtime(
+        **args, confirm_imports=True, confirm_model_load=True
+    )
+    assert result["ready_for_inference_attempt"] is True
+    assert result["trusted_checkpoint_load_requested"] is True
+    assert result["operator_checkpoint_load_completed"] is True
+    assert result["checkpoint_deserialized"] is True
+    assert result["remi_unpickled"] is True
+    assert result["upstream_model_imported"] is True
+    assert result["checkpoint_load_independently_attested"] is False
+    assert result["actual_inference_verified"] is False
+    assert result["commercial_release_ready"] is False
+    second_argv, second_kwargs = cmds[1]
+    assert second_argv[1] == "-I"
+    assert "--load-only" in second_argv
+    assert "--checkpoint" in second_argv and "--vocab" in second_argv
+    assert "--prompt" not in second_argv and "--out" not in second_argv
+    assert second_kwargs["shell"] is False
+    assert second_kwargs["env"]["TRANSFORMERS_OFFLINE"] == "1"
+    assert json.loads(args["output_path"].read_text()) == result
+
+
+def test_k15_model_load_failure_never_publishes_success(tmp_path, monkeypatch):
+    args = ready_inputs(tmp_path, monkeypatch)
+    n = []
+    def run(argv, **kw):
+        n.append(argv)
+        if len(n) == 1:
+            return SimpleNamespace(returncode=0, stdout=json.dumps(
+                stub_probe(imported=True)
+            ))
+        return SimpleNamespace(
+            returncode=1, stdout="", stderr="secret model path plus debug")
+    monkeypatch.setattr(doctor.subprocess, "run", run)
+    with pytest.raises(RuntimeError, match="could not be strictly loaded") as failure:
+        doctor.diagnose_composition_runtime(
+            **args, confirm_imports=True, confirm_model_load=True
+        )
+    assert "secret" not in str(failure.value)
+    assert not args["output_path"].exists()
+
+
+@pytest.mark.parametrize("changed_field,changed", [
+    ("model_state_dict_strict_loaded", False),
+    ("pretrained_inference_executed", True),
+    ("midi_written", True),
+    ("model_parameter_count", 0),
+    ("commercial_release_ready", True),
+])
+def test_k15_disallows_false_success_or_forged_inference_claim(
+        tmp_path, monkeypatch, changed_field, changed):
+    args = ready_inputs(tmp_path, monkeypatch)
+    n = []
+    def run(argv, **kw):
+        n.append(argv)
+        if len(n) == 1:
+            return SimpleNamespace(
+                returncode=0, stdout=json.dumps(stub_probe(imported=True)))
+        record = fake_loaded_model_result()
+        record[changed_field] = changed
+        return SimpleNamespace(returncode=0, stdout=json.dumps(record))
+    monkeypatch.setattr(doctor.subprocess, "run", run)
+    with pytest.raises(ValueError):
+        doctor.diagnose_composition_runtime(
+            **args, confirm_imports=True, confirm_model_load=True
+        )
+    assert not args["output_path"].exists()
+
+
+def test_k15_mismatched_checkpoint_after_runner_refuses_success(tmp_path, monkeypatch):
+    args = ready_inputs(tmp_path, monkeypatch)
+    n = []
+    def run(argv, **kw):
+        n.append(argv)
+        if len(n) == 1:
+            return SimpleNamespace(returncode=0, stdout=json.dumps(
+                stub_probe(imported=True)))
+        args["checkpoint"].write_bytes(b"tampered-while-loading")
+        return SimpleNamespace(
+            returncode=0, stdout=json.dumps(fake_loaded_model_result())
+        )
+    monkeypatch.setattr(doctor.subprocess, "run", run)
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        doctor.diagnose_composition_runtime(
+            **args, confirm_imports=True, confirm_model_load=True
+        )
+    assert not args["output_path"].exists()
+
+
+def test_k15_no_load_when_missing_dependencies(tmp_path, monkeypatch):
+    args = ready_inputs(tmp_path, monkeypatch)
+    cmds = []
+    def run(argv, **kw):
+        cmds.append(argv)
+        return SimpleNamespace(returncode=0, stdout=json.dumps(
+            stub_probe(imported=False, missing=["torch"])
+        ))
+    monkeypatch.setattr(doctor.subprocess, "run", run)
+    with pytest.raises(RuntimeError, match="runtime preflight did not pass"):
+        doctor.diagnose_composition_runtime(
+            **args, confirm_imports=True, confirm_model_load=True
+        )
+    assert len(cmds) == 1
+    assert not args["output_path"].exists()
+
+
+def test_k15_runner_help_is_safe_without_torch_or_checkpoint(tmp_path, monkeypatch):
+    from midivolt.model_runners import text2midi_runner
+    import sys
+    monkeypatch.setattr(sys, "argv", [
+        "text2midi_runner.py", "--help"
+    ])
+    with pytest.raises(SystemExit) as exited:
+        text2midi_runner.main()
+    assert exited.value.code == 0
