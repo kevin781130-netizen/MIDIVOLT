@@ -1,10 +1,10 @@
 # E-GMD Diverse Held-out Evaluation — Stage 2
 
-Scope: extend the 3-clip (~2-second) smoke to 6 distinct performances 8–35 seconds long, requiring at least 3 drummers.
+Scope: extend the 3-clip (~2-second) smoke to 6 distinct performances: 4 long 8–35 second grooves plus 2 short 1–7 second fills, requiring at least 3 drummers.
 
 Upstream: E-GMD v1.0.0 official test split, human drumming reproduced on Roland TD-17 electronic drum kits; not acoustic microphone recordings.
 
-Sampling is deterministic and metadata-only, before observing any new model output. Selection scores reward new drummers, beat/fill diversity, primary styles and tempo ranges. No train or validation clips can be substituted for missing Test clips.
+Sampling is deterministic and metadata-only, before observing any new model output. E-GMD's long clips are predominantly beats, so fills are selected in a separate short-duration stratum. Selection scores reward new drummers, beat/fill diversity, primary styles and tempo ranges. No train or validation clips can be substituted for missing Test clips.
 
 ## Two-stage controlled execution
 
