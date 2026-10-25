@@ -117,7 +117,7 @@ class DrumReportAuditTests(unittest.TestCase):
         item["samples"][1]["scores"]["per_gm_pitch"] = {
             "35": score(0, 1, 0), "36": score(1, 0, 1),
         }
-        with self.assertRaisesRegex(ValueError, "Ground truth mismatch"):
+        with self.assertRaisesRegex(ValueError, "ground-truth drum events|Ground truth mismatch"):
             audit_report(item)
 
     def test_acoustic_recording_mislabel_rejected(self):
