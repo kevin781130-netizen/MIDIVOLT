@@ -4,9 +4,6 @@ name: MIDIVOLT Independent GM42 Confidence Validation
 # Executed on feat/drum-audit-20261025 only with commit marker.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
