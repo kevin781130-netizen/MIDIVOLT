@@ -1,0 +1,45 @@
+name: MIDIVOLT E-GMD Validation Metadata Length Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/drum-audit-20261025]
+permissions:
+  contents: read
+jobs:
+  metadata:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[subband-meta-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install "numpy>=1.23,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3"
+      - name: Check fresh official Validation candidate counts by duration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from collections import Counter
+          from scripts.egmd_mini_real import get_small_csv
+          from midivolt.egmd_import import read_metadata
+          from midivolt.hat_subband_validation import EXCLUDED_PREVIOUS_SONG_IDS
+          f,h=get_small_csv(Path('/tmp/official.csv'))
+          rows=read_metadata(f)
+          print('metadata_sha256',h)
+          for ceiling in (35,45,60,75,90,120,150,180):
+              eligible=[
+                  x for x in rows
+                  if x['split']=='validation'
+                  and x['kit_name']=='Acoustic Kit'
+                  and x['id'] not in EXCLUDED_PREVIOUS_SONG_IDS
+                  and float(x['duration'])<=ceiling
+              ]
+              per=Counter(x['beat_type'] for x in eligible)
+              print('DURATION_CEILING',ceiling,'BEAT',per.get('beat',0),
+                    'FILL',per.get('fill',0),
+                    'DRUMMERS',len({x['drummer'] for x in eligible}))
+          PY
