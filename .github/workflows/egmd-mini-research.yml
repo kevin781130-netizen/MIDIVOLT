@@ -15,7 +15,7 @@ jobs:
   egmd-mini:
     if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[egmd-real-once]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     env:
       DATA_DIR: /tmp/midivolt-egmd-mini
       ADT_ROOT: /tmp/MIDIVOLT_ADT_STR
@@ -58,14 +58,16 @@ jobs:
           git -C "$ADT_ROOT" checkout --detach "$SOURCE_REVISION"
           test "$(git -C "$ADT_ROOT" rev-parse HEAD)" = "$SOURCE_REVISION"
 
-      - name: Extract bounded official E-GMD test WAV MIDI and benchmark models
+      - name: Extract six diverse official Test WAV MIDI pairs and benchmark models
         run: |
           python -m scripts.egmd_mini_real \
             --output "$DATA_DIR" \
             --upstream-root "$ADT_ROOT" \
-            --max-samples 3 \
-            --max-duration 22 \
-            --max-entry-mb 28 \
+            --max-samples 6 \
+            --min-duration 8 \
+            --min-drummers 3 \
+            --max-duration 35 \
+            --max-entry-mb 48 \
             --research-only
 
       - name: Upload scores and provenance only (NEVER dataset or model)
