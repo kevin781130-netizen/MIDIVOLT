@@ -25,7 +25,7 @@ def sample(performance: int, *, drummer: str, typ: str, duration: float,
         "style": ("funk" if performance % 3 == 0 else "rock" if performance % 3 == 1 else "jazz") + "/groove",
         "duration": str(duration),
         "split": split,
-        "bpm": str(65 + performance * 19),
+        "bpm": str(65 + (performance % 10) * 19),
         "midi_filename": f"{drummer}/session1/{performance}.midi",
         "audio_filename": f"{drummer}/session1/{performance}.wav",
     }
