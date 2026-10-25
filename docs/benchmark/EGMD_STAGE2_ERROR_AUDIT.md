@@ -97,6 +97,15 @@ New audit source: midivolt/drum_report_audit.py
 (offline, standard library, exact-score consistency checks).
 New tests: tests/transcription/test_drum_report_audit.py.
 
+Run offline after extracting the published GitHub artifact ZIP:
+
+    python -m midivolt.drum_report_audit \
+      --input ./research_metrics.json \
+      --output ./stage2_audit.json
+
+No GPU, checkpoint download, or GitHub Actions are required. The script
+runs only on the original JSON report, and *refuses* inconsistent scores.
+
 The audit checks:
 - both engines saw exactly the same named Test performances;
 - reported micro TP/FP/FN match per-song and per-GM-pitch totals;
