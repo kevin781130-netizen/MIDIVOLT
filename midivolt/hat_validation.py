@@ -315,6 +315,44 @@ def evaluate_validation_pairs(
                 "song_id": rec["song_id"], "seconds": elapsed, "result": scores
             })
     summaries = {name: _aggregate(rows) for name, rows in results.items()}
+    no_hat_control_ids = sorted({
+        rec["song_id"] for rec in records
+        if not any(
+            note.pitch == 42
+            for ins in rec["truth"].instruments for note in ins.notes
+        )
+    })
+    # A negative control has no annotated GM42 Closed Hi-hat.
+    # It catches presets that convert isolated ride/open-hat/snare
+    # transients to a spurious Closed Hi-hat, before any production use.
+    control_fp = {
+        name: sum(
+            row["result"]["per_class"].get(HAT_CLASS, {}).get("fp", 0)
+            for row in results[name] if row["song_id"] in no_hat_control_ids
+        )
+        for name in PRESETS
+    }
+    recommendation = _recommend(summaries)
+    if len(records) < 6:
+        recommendation = {
+            "status": "insufficient_validation_coverage",
+            "reason": "At least 6 independent Validation source songs required before preset selection",
+            "exploratory_recommendation": recommendation,
+        }
+    elif not no_hat_control_ids:
+        recommendation = {
+            "status": "needs_no_closed_hat_negative_control",
+            "reason": "No validation excerpt without GM42 reference; avoid untested false-hat sensitivity",
+            "exploratory_recommendation": recommendation,
+        }
+    elif recommendation.get("status") == "validation_candidate_only":
+        selection = recommendation["preset"]
+        if control_fp[selection] > control_fp["baseline"]:
+            recommendation = {
+                "status": "negative_control_failure_retain_baseline",
+                "reason": "Candidate adds new false Closed Hi-hat events on no-GM42 tracks",
+                "exploratory_recommendation": recommendation,
+            }
     return {
         "schema_version": "1",
         "evaluation_partition": "official_upstream_validation_only",
@@ -329,7 +367,14 @@ def evaluate_validation_pairs(
             "min_hat_precision": MIN_HAT_PRECISION_ABSOLUTE,
         },
         "summary_by_preset": summaries,
-        "recommendation": _recommend(summaries),
+        "negative_control": {
+            "no_closed_hi_hat_song_ids": no_hat_control_ids,
+            "song_count": len(no_hat_control_ids),
+            "false_gm42_predictions_by_preset": control_fp,
+            "candidate_must_not_increase_control_fp": True,
+        },
+        "sample_count": len(records),
+        "recommendation": recommendation,
         "production_default_unchanged": True,
         "heldout_test_scores_unaffected": True,
         "warning": "Validation-only parameter selection; independent Test evaluation not performed.",
