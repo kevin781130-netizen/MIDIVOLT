@@ -334,6 +334,15 @@ def run(args) -> int:
         data = evaluate_wavs(files, output, adt_root=args.upstream_root, model_revision=MODEL_REVISION)
         data["selection_plan_sha256"] = digest_file(output / "selection_plan.json")
     (output / "research_metrics.json").write_text(json.dumps(data,indent=2,ensure_ascii=False)+"\n")
+    if args.baseline_report and not args.fetch_only:
+        # Compare the newly inferred MIDI-onset hypotheses with the original
+        # untouched, hash-identified six-song benchmark. Do not change F1.
+        from midivolt.drum_replay_evidence import build_evidence, load_metrics
+        evidence = build_evidence(load_metrics(args.baseline_report), data)
+        (output / "drum_label_replay_evidence.json").write_text(
+            json.dumps(evidence, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
     print(json.dumps(data,indent=2,ensure_ascii=False))
     return 0
 
@@ -352,6 +361,8 @@ def main(argv=None):
                     help="Metadata-only preview, no ZIP access or model weights")
     ap.add_argument("--max-entry-mb",type=int,default=28)
     ap.add_argument("--fetch-only",action="store_true")
+    ap.add_argument("--baseline-report", type=Path,
+                    help="original six-song research_metrics.json or ZIP; verify matching WAV/MIDI/checkpoint and per-song TP/FP/FN")
     ap.add_argument("--research-only",action="store_true")
     args = ap.parse_args(argv)
     try:
