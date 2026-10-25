@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from midivolt.egmd_selection import select_diverse_test_rows, selection_summary
+from midivolt.egmd_selection import select_diverse_test_rows, select_mixed_test_rows, selection_summary
 from scripts.egmd_mini_real import _float_pcm
 
 
@@ -93,6 +93,38 @@ class DiverseSelectionTests(unittest.TestCase):
     def test_explicit_kit_selection(self):
         selected = select_diverse_test_rows(demo(), count=3, min_drummers=2, kit="Raw Dnb")
         self.assertTrue(all(item["kit_name"] == "Raw Dnb" for item in selected))
+
+    def test_mixed_selection_keeps_long_grooves_and_short_fills(self):
+        rows = demo()
+        rows.extend([
+            sample(31, drummer="drummer2", typ="fill", duration=2.5),
+            sample(32, drummer="drummer3", typ="fill", duration=3.5),
+            sample(33, drummer="drummer4", typ="fill", duration=3.0),
+        ])
+        selected = select_mixed_test_rows(rows, count=6, short_fill_count=2,
+                                          min_drummers=3, min_long_duration=8.0,
+                                          max_long_duration=35.0)
+        self.assertEqual(len(selected), 6)
+        report = selection_summary(selected)
+        self.assertGreaterEqual(report["drummer_count"], 3)
+        self.assertEqual(report["beat_types"], {"beat": 4, "fill": 2})
+        self.assertTrue(all(float(s["duration"]) >= 8 for s in selected if s["beat_type"] == "beat"))
+        self.assertTrue(all(float(s["duration"]) <= 7 for s in selected if s["beat_type"] == "fill"))
+        self.assertEqual(len({s["id"] for s in selected}), 6)
+
+    def test_mixed_selection_aborts_when_short_fill_stratum_is_absent(self):
+        with self.assertRaisesRegex(ValueError, "official Test"):
+            select_mixed_test_rows(demo(), count=6, short_fill_count=2, min_drummers=3)
+
+    def test_mixed_selection_is_deterministic(self):
+        rows = demo() + [
+            sample(31, drummer="drummer2", typ="fill", duration=2.5),
+            sample(32, drummer="drummer3", typ="fill", duration=3.5),
+        ]
+        a = select_mixed_test_rows(rows, count=6, short_fill_count=2, min_drummers=3)
+        b = select_mixed_test_rows(list(reversed(rows)), count=6,
+                                   short_fill_count=2, min_drummers=3)
+        self.assertEqual([s["id"] for s in a], [s["id"] for s in b])
 
     def test_pcm_stereo_int16_normalization_not_broken(self):
         samples = np.array([[16384, 16384], [-16384, -16384], [0, 0]], dtype=np.int16)
