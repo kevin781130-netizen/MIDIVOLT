@@ -27,7 +27,7 @@ import requests
 from scipy.io import wavfile
 
 from midivolt.egmd_import import read_metadata
-from midivolt.egmd_selection import select_diverse_test_rows, selection_summary
+from midivolt.egmd_selection import select_mixed_test_rows, selection_summary
 from midivolt.drums import transcribe_drum_wav
 from midivolt.drum_suite import _normalize_reference, _summarize
 from midivolt.compare_drums import evaluate_drums
@@ -269,16 +269,24 @@ def run(args) -> int:
     output.mkdir(parents=True, exist_ok=True)
     csvpath, csvhash = get_small_csv(output / "metadata.csv")
     rows = read_metadata(csvpath)
-    selection = select_diverse_test_rows(
-        rows, count=args.max_samples, min_duration=args.min_duration,
-        max_duration=args.max_duration, min_drummers=args.min_drummers,
-        kit=args.kit,
+    selection = select_mixed_test_rows(
+        rows, count=args.max_samples,
+        short_fill_count=args.short_fills,
+        min_long_duration=args.min_duration,
+        max_long_duration=args.max_duration,
+        min_drummers=args.min_drummers, kit=args.kit,
     )
     plan = {
         "dataset": "E-GMD v1.0.0",
         "metadata_url": CSV_URL, "metadata_sha256": csvhash,
         "archive_url": ZIP_URL, "declared_full_archive_sha256": ZIP_FULL_SHA256,
         "sampling_summary": selection_summary(selection),
+        "selection_strata": {
+            "long_grooves": args.max_samples - args.short_fills,
+            "short_fills": args.short_fills,
+            "long_duration_seconds": [args.min_duration, args.max_duration],
+            "short_fill_duration_seconds": [1.0, 7.0],
+        },
         "selected": [{k: row[k] for k in (
             "id","drummer","split","style","beat_type","bpm","duration","kit_name",
             "audio_filename","midi_filename"
@@ -331,6 +339,7 @@ def main(argv=None):
     ap.add_argument("--min-duration",type=float,default=8.0)
     ap.add_argument("--max-duration",type=float,default=35.0)
     ap.add_argument("--min-drummers",type=int,default=3)
+    ap.add_argument("--short-fills",type=int,default=2)
     ap.add_argument("--kit",default="Acoustic Kit")
     ap.add_argument("--plan-only",action="store_true",
                     help="Metadata-only preview, no ZIP access or model weights")
