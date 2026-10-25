@@ -44,7 +44,7 @@ All timings CPU-only; median per clip approximately 0.018–0.020s. The test ons
 The frozen gates required at least +0.02 absolute Hi-hat Recall without significant global/hat Precision loss, **and zero extra false GM42 in tracks that contain no reference GM42**.
 
 - Moderate without shape: +0.095238 Recall, but **fails** false-hat negative control (+1).
-- Moderate with shape: **identical predictions/aggregate scores** to moderate unfiltered; fails the same negative control (+1). Spectral rejection provided **no demonstrated improvement** here.
+- Moderate with shape: **identical aggregate scores** to moderate unfiltered (raw note-for-note prediction equality was not retained); fails the same negative control (+1). Spectral rejection provided **no demonstrated improvement** here.
 - Conservative with shape: +0.047619 Recall, no extra negative-control false hats, Precision guardrails preserved. Meets the frozen gates and becomes a **Validation-only candidate**.
 - **Official DSP production baseline stays unchanged**, even though a candidate passed.
 
