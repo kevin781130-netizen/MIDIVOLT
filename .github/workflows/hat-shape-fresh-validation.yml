@@ -1,0 +1,102 @@
+name: MIDIVOLT Fresh Validation Hi-hat Shape A/B
+
+# Single explicitly approved research execution only:
+# commit message [hat-shape-once], not every push.
+# No ADT_STR/Basic Pitch weights, no raw media in uploaded artifacts.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/drum-audit-20261025
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  hat-shape-audit:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hat-shape-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    env:
+      STUDY_DIR: /tmp/midivolt-hat-shape-r1
+      GH_TOKEN: ${{ github.token }}
+      PYTHONHASHSEED: "0"
+      OLD_ARTIFACT_ID: "12597917889"
+    steps:
+      - name: Checkout pinned MIDIVOLT commit
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 CPU only
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install small non-ML dependencies
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3" "remotezip>=0.12,<1"
+
+      - name: Run DSP baseline and spectral-shape regressions
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_validation.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_validation_metadata.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_shape.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_shape_validation.py' -v
+
+      - name: Restore genuine Cut-21 prior Validation plan to avoid data reuse
+        run: |
+          mkdir -p "$STUDY_DIR/previous"
+          gh api "repos/kevin781130-netizen/MIDIVOLT/actions/artifacts/$OLD_ARTIFACT_ID/zip" > "$STUDY_DIR/previous/original.zip"
+          python -m zipfile -t "$STUDY_DIR/previous/original.zip"
+          python -m zipfile -e "$STUDY_DIR/previous/original.zip" "$STUDY_DIR/previous"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from midivolt.hat_validation import CUT21_VALIDATION_SONG_IDS
+          plan = json.loads((Path("/tmp/midivolt-hat-shape-r1/previous") / "validation_selection_plan.json").read_text())
+          assert plan["dataset"] == "E-GMD v1.0.0"
+          assert plan["upstream_split"] == "validation"
+          assert {x["id"] for x in plan["samples"]} == CUT21_VALIDATION_SONG_IDS
+          print("Historical Validation cohort pinned:",len(CUT21_VALIDATION_SONG_IDS))
+          PY
+
+      - name: Download only the small official metadata CSV
+        run: |
+          python -c "from pathlib import Path; from scripts.egmd_mini_real import get_small_csv; print(get_small_csv(Path('/tmp/midivolt-hat-shape-r1/official.csv')))"
+
+      - name: Freeze six NEW Validation performers before WAV access
+        run: |
+          python -m scripts.egmd_hat_prepare \
+            --csv "$STUDY_DIR/official.csv" \
+            --output "$STUDY_DIR/new" \
+            --exclude-plan "$STUDY_DIR/previous/validation_selection_plan.json" \
+            --count 6 --fills 2
+
+      - name: Fetch ONLY the selected WAV/MIDI pairs using HTTP Range
+        run: |
+          python -m scripts.egmd_hat_prepare \
+            --csv "$STUDY_DIR/official.csv" \
+            --output "$STUDY_DIR/new" \
+            --exclude-plan "$STUDY_DIR/previous/validation_selection_plan.json" \
+            --count 6 --fills 2 --extract-range \
+            --official-cc-by-research-review
+
+      - name: Compare four frozen DSP arms on fresh official Validation
+        run: |
+          python -m midivolt.hat_shape_validation \
+            --manifest "$STUDY_DIR/new/validation_manifest_SOURCE_LICENSE_REVIEWED.json" \
+            --selection-plan "$STUDY_DIR/new/validation_selection_plan.json" \
+            --output "$STUDY_DIR/new/hat_shape_results.json"
+
+      - name: Upload score/provenance only; NEVER upload dataset WAV MIDI or weights
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-hat-shape-fresh-validation-metrics
+          path: |
+            /tmp/midivolt-hat-shape-r1/new/validation_selection_plan.json
+            /tmp/midivolt-hat-shape-r1/new/hat_shape_results.json
+          if-no-files-found: warn
+          retention-days: 14
