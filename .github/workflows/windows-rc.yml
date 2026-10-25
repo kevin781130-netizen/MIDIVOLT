@@ -29,6 +29,9 @@ jobs:
           $ErrorActionPreference = "Stop"
           $wheels = @(Get-ChildItem dist -File -Filter "midivolt-*.whl")
           if ($wheels.Count -ne 1) { throw "Expected one wheel for release audit" }
+          # Audit source module before package install, then separately install
+          # the built wheel into a clean, isolated Python 3.11 environment.
+          $env:PYTHONPATH = (Join-Path (Get-Location) "src")
           python -m midivolt.beta_gate_cli --wheel $wheels[0].FullName --developer-rc --out dist/wheel-audit.json
           if ($LASTEXITCODE -ne 0) { throw "Actual wheel package audit failed" }
       - name: Install wheel in clean Python 3.11 and smoke CLI
@@ -76,6 +79,7 @@ jobs:
             throw "Invalid ZIP checksum manifest"
           }
           $expectedZipSha = $Matches[1]
+          $env:PYTHONPATH = (Join-Path (Get-Location) "src")
           python -m midivolt.beta_gate_cli --wheel $wheels[0].FullName --windows-zip $zip --zip-sha256 $expectedZipSha --developer-rc --out dist/windows-package-audit.json
           if ($LASTEXITCODE -ne 0) { throw "Actual Windows ZIP package audit failed" }
       - name: Unpack ZIP and exercise actual Windows PowerShell installer
