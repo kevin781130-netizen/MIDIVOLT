@@ -16,6 +16,7 @@ import time
 from .environments import _read_managed_environment, verify_environment, venv_python
 from .io import read_midi, write_midi
 from .local_model_provider import LocalText2MidiProvider
+from .model_runners.text2midi_local import inspect_local_t5, inspect_upstream_text2midi_contract
 from .part_orchestrator import compose_strict_parts
 from .review_engine import _save_new_json, check_proposal, create_proposal
 
@@ -67,8 +68,10 @@ def validate_acceptance_inputs(
         raise ValueError("Local T5 tokenizer directory must be an existing, non-symlink directory.")
     tokenizer = tokenizer.resolve(strict=True)
     # Prevent successful-looking provenance from an empty tokenizer directory.
-    if not (tokenizer / "tokenizer_config.json").is_file():
-        raise ValueError("Local T5 tokenizer is missing tokenizer_config.json.")
+    # The upstream constructor also loads an FLAN-T5 ENCODER, not only a
+    # tokenizer. Fail before checkpoint unpickling / costly inference.
+    t5_assets = inspect_local_t5(tokenizer)
+    pinned_contract = inspect_upstream_text2midi_contract(upstream)
     paths = [Path(x).expanduser().resolve() for x in (source, candidate, manifest, report)]
     if len(set(paths)) != 4:
         raise ValueError("Source/candidate/manifest/report must be distinct.")
@@ -95,6 +98,7 @@ def validate_acceptance_inputs(
         "checkpoint_sha256": weights_digest,
         "vocab_sha256": vocabulary_digest,
         "source_sha256": _hash_file(src),
+        "t5_assets": t5_assets, "upstream_contract": pinned_contract,
     }
 
 
@@ -170,6 +174,8 @@ def run_composition_acceptance(
         "requirements_sha256": validated["verified"]["requirements_sha256"],
         "checkpoint_sha256": validated["checkpoint_sha256"],
         "vocab_sha256": validated["vocab_sha256"],
+        "local_t5_encoder_preflight": validated["t5_assets"],
+        "upstream_constructor_preflight": validated["upstream_contract"],
         "source_sha256": proposal["source_sha256"],
         "candidate_sha256": proposal["candidate_sha256"],
         "source": str(validated["source"]),
