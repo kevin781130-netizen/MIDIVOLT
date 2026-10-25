@@ -25,6 +25,7 @@ def diagnose_composition_runtime(
     vocab, vocab_sha256, t5_dir, output_path,
     confirm_imports: bool = False, cuda_smoke: bool = False,
     require_cuda: bool = False, timeout: float = 90,
+    confirm_model_load: bool = False, model_load_timeout: float = 1200,
 ) -> dict:
     """Report preflight blockers without claiming pretrained inference passed."""
     if (cuda_smoke or require_cuda) and not confirm_imports:
@@ -33,6 +34,13 @@ def diagnose_composition_runtime(
         raise ValueError("--require-cuda requires --cuda-smoke for real compute verification.")
     if type(timeout) not in (int, float) or not 10 <= timeout <= 180:
         raise ValueError("Runtime probe timeout must be in 10..180 seconds.")
+    if confirm_model_load and not confirm_imports:
+        raise PermissionError(
+            "Loading trusted checkpoint/REMI pickle/upstream model code requires "
+            "both --confirm-imports and --confirm-model-load."
+        )
+    if type(model_load_timeout) not in (int, float) or not 60 <= model_load_timeout <= 7200:
+        raise ValueError("Model load timeout must be within 60..7200 seconds.")
     output = Path(output_path).expanduser().resolve()
     if output.suffix.lower() != ".json" or not output.parent.is_dir():
         raise ValueError("Doctor report needs a new JSON file in an existing directory.")
@@ -99,6 +107,65 @@ def diagnose_composition_runtime(
         blockers.append("Requested CUDA computation is not verified.")
     if not confirm_imports:
         blockers.append("Import/API compatibility not tested; rerun with --confirm-imports.")
+
+    model_load = None
+    if confirm_model_load:
+        # This second explicit stage imports operator-provided upstream code,
+        # deserializes a trusted REMI pickle, and strictly loads the actual
+        # Text2midi checkpoint. It DOES NOT generate or write any MIDI.
+        if blockers:
+            raise RuntimeError(
+                "Refusing checkpoint loading because the package/runtime preflight did not pass."
+            )
+        real_runner = Path(__file__).parent / "model_runners" / "text2midi_runner.py"
+        command = [
+            str(python), "-I", str(real_runner), "--load-only",
+            "--checkout", str(upstream), "--checkpoint", str(weights),
+            "--vocab", str(remi), "--t5-dir", str(Path(t5["directory"])),
+        ]
+        try:
+            process = subprocess.run(
+                command, cwd=str(upstream), env=offline, shell=False,
+                capture_output=True, text=True, errors="replace",
+                timeout=model_load_timeout, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError("Trusted model load subprocess unavailable or timed out.") from exc
+        if process.returncode:
+            # Never dump upstream stderr or prompt content into a persisted
+            # status report; a model-loading failure is not evidence of success.
+            raise RuntimeError(
+                "Trusted Text2midi checkpoint could not be strictly loaded "
+                "in the managed environment."
+            )
+        try:
+            model_load = json.loads(process.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError) as exc:
+            raise ValueError("Model load runner did not produce a valid final JSON object.") from exc
+        if not isinstance(model_load, dict):
+            raise ValueError("Model load runner returned invalid output.")
+        for field in ("model_state_dict_strict_loaded",
+                      "local_t5_encoder_initialized", "local_t5_tokenizer_initialized",
+                      "remi_pickle_deserialized", "upstream_model_code_imported"):
+            if model_load.get(field) is not True:
+                raise ValueError("Model load result did not confirm " + field + ".")
+        if (model_load.get("model") != "text2midi" or
+                model_load.get("mode") != "trusted_local_load_only" or
+                model_load.get("pretrained_inference_executed") is not False or
+                model_load.get("midi_written") is not False or
+                model_load.get("commercial_release_ready") is not False):
+            raise ValueError("Model load runner produced unsafe or unexpected status.")
+        if model_load.get("device_type") not in ("cpu", "cuda", "mps"):
+            raise ValueError("Model load runner has unknown device.")
+        if (type(model_load.get("model_parameter_count")) is not int or
+                model_load["model_parameter_count"] <= 0):
+            raise ValueError("Model load runner lacks a positive model parameter count.")
+        if require_cuda and model_load["device_type"] != "cuda":
+            raise ValueError("Loaded model used a non-CUDA device despite require-cuda.")
+        # Hashes were validated before importing potentially untrusted code;
+        # detect any modification of the approved local assets during load.
+        _trusted_asset(weights, digest_weights, "checkpoint")
+        _trusted_asset(remi, digest_remi, "vocabulary")
     ready = not blockers
     report = {
         "schema_version": 1,
@@ -112,12 +179,16 @@ def diagnose_composition_runtime(
         "local_t5": t5,
         "upstream_source_contract": source_contract,
         "runtime": probe,
+        "model_load": model_load,
+        "trusted_checkpoint_load_requested": confirm_model_load,
+        "operator_checkpoint_load_completed": model_load is not None,
+        "checkpoint_load_independently_attested": False,
         "require_cuda": require_cuda,
         "compatibility_blockers": blockers,
         "ready_for_inference_attempt": ready,
-        "upstream_model_imported": False,
-        "checkpoint_deserialized": False,
-        "remi_unpickled": False,
+        "upstream_model_imported": model_load is not None,
+        "checkpoint_deserialized": model_load is not None,
+        "remi_unpickled": model_load is not None,
         "actual_inference_verified": False,
         "music_quality_verified": False,
         "commercial_release_ready": False,
