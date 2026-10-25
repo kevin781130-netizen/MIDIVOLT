@@ -26,5 +26,6 @@ jobs:
       - name: Exercise new and baseline drum DSP
         run: |
           python -m unittest discover -s tests/transcription -p 'test_hat_subband.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband_validation.py' -v
           python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
           python -m unittest discover -s tests/transcription -p 'test_hat_shape.py' -v
