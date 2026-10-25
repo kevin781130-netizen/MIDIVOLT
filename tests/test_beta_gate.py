@@ -244,3 +244,34 @@ def test_valid_wheel_reports_record_validation_and_no_signature_claim(tmp_path):
     assert report["wheel_record_integrity_verified"] is True
     assert report["wheel_record_entries_verified"] >= 8
     assert report["wheel_signature_or_publisher_trusted"] is False
+
+
+@pytest.mark.parametrize("bad_entry", [
+    "midivolt/./extra.py",
+    "midivolt//extra.py",
+    "midivolt/../extra.py",
+])
+def test_archive_rejects_raw_path_normalization_attacks(tmp_path, bad_entry):
+    wheel = synthetic_wheel(tmp_path)
+    with zipfile.ZipFile(wheel, "a") as archive:
+        archive.writestr(bad_entry, b"not legitimate")
+    with pytest.raises(ValueError, match="Unsafe path"):
+        inspect_wheel(wheel)
+
+
+def test_archive_rejects_case_insensitive_windows_path_collision(tmp_path):
+    wheel = synthetic_wheel(tmp_path)
+    with zipfile.ZipFile(wheel, "a") as archive:
+        archive.writestr("midivolt/CLI.py", b"print('different on Windows')")
+    with pytest.raises(ValueError, match="Duplicate archive member"):
+        inspect_wheel(wheel)
+
+
+def test_windows_zip_rejects_extra_payload_even_if_supplied_checksum_is_current(tmp_path):
+    wheel = synthetic_wheel(tmp_path)
+    windows, _ = synthetic_windows_zip(tmp_path, wheel)
+    with zipfile.ZipFile(windows, "a") as archive:
+        archive.writestr("Install-Extra.ps1", b"Write-Host 'not in audited manifest'")
+    digest = sha256(windows.read_bytes()).hexdigest()
+    with pytest.raises(ValueError, match="unexpected members"):
+        inspect_windows_zip(windows, wheel=wheel, expected_sha256=digest)
