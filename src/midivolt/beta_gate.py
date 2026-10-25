@@ -27,6 +27,7 @@ REQUIRED_TARGETS = {
     "midivolt-compose": "midivolt.compose_cli:main",
     "midivolt-compose-accept": "midivolt.composition_acceptance_cli:main",
     "midivolt-compose-audit": "midivolt.composition_audit_cli:main",
+    "midivolt-compose-doctor": "midivolt.composition_doctor_cli:main",
     "midivolt-cubase": "midivolt.cubase_cli:main",
     "midivolt-beta-gate": "midivolt.beta_gate_cli:main",
 }
