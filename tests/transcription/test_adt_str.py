@@ -69,7 +69,10 @@ class ModelBridgeTests(unittest.TestCase):
             )
             self.assertEqual(info["detected"], 3)
             self.assertEqual(info["license_gate"], "research_only")
-            self.assertEqual(info["gm_pitch_histogram"], {"36": 1, "38": 1, "42": 1})
+            self.assertEqual(info["raw_vendor_pitch_histogram"], {"36": 1, "38": 1, "42": 1})
+            self.assertEqual(info["pitch_namespace"], "adt_str_vendor_custom_drum_classes")
+            self.assertFalse(info["standard_gm_output"])
+            self.assertTrue(info["requires_explicit_daw_drum_mapping"])
             self.assertTrue(output.instruments[0].is_drum)
             self.assertLess(abs(output.instruments[0].notes[0].start - 0.25), 0.003)
 
