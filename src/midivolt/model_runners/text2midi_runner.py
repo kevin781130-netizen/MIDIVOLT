@@ -6,10 +6,17 @@ import random
 import sys
 from pathlib import Path
 
-from text2midi_local import (
-    inspect_local_t5, inspect_upstream_text2midi_contract,
-    redirect_known_t5_encoder,
-)
+# Support both direct isolated script execution and installed-package imports.
+if __package__:
+    from .text2midi_local import (
+        inspect_local_t5, inspect_upstream_text2midi_contract,
+        redirect_known_t5_encoder,
+    )
+else:
+    from text2midi_local import (
+        inspect_local_t5, inspect_upstream_text2midi_contract,
+        redirect_known_t5_encoder,
+    )
 
 def main():
     p = argparse.ArgumentParser()
