@@ -23,7 +23,6 @@ from pathlib import Path
 
 import numpy as np
 import pretty_midi
-import requests
 from scipy.io import wavfile
 
 from midivolt.egmd_import import read_metadata
@@ -52,6 +51,7 @@ def digest_file(path: Path) -> str:
 
 
 def get_small_csv(dest: Path) -> tuple[Path, str]:
+    import requests  # Optional network dependency; not needed by unit tests.
     response = requests.get(CSV_URL, timeout=30, stream=True)
     response.raise_for_status()
     data = bytearray()
@@ -70,6 +70,7 @@ def get_small_csv(dest: Path) -> tuple[Path, str]:
 
 def preflight_ranges(url: str) -> int:
     """Refuse byte-range-ignoring hosts before touching a 90GB archive."""
+    import requests
     response = requests.get(
         url, headers={"Range": "bytes=0-0"}, stream=True, timeout=30
     )
