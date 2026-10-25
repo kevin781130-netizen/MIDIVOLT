@@ -17,11 +17,16 @@ import stat
 import tempfile
 import zipfile
 
-REQUIRED_CLI = frozenset({
-    "midivolt", "midivolt-review", "midivolt-compose",
-    "midivolt-compose-accept", "midivolt-compose-audit",
-    "midivolt-cubase", "midivolt-beta-gate",
-})
+REQUIRED_TARGETS = {
+    "midivolt": "midivolt.cli:main",
+    "midivolt-review": "midivolt.review_cli:main",
+    "midivolt-compose": "midivolt.compose_cli:main",
+    "midivolt-compose-accept": "midivolt.composition_acceptance_cli:main",
+    "midivolt-compose-audit": "midivolt.composition_audit_cli:main",
+    "midivolt-cubase": "midivolt.cubase_cli:main",
+    "midivolt-beta-gate": "midivolt.beta_gate_cli:main",
+}
+REQUIRED_CLI = frozenset(REQUIRED_TARGETS)
 REQUIRED_WINDOWS = frozenset({
     "Install-MIDIVOLT.ps1", "Smoke-MIDIVOLT.ps1",
     "README-Windows.txt", "LICENSE", "THIRD_PARTY_NOTICES.md",
@@ -128,6 +133,9 @@ def inspect_wheel(wheel: str | Path) -> dict:
         scripts = dict(parser["console_scripts"])
         if not REQUIRED_CLI.issubset(scripts):
             raise ValueError("Wheel missing required CLI: " + ", ".join(sorted(REQUIRED_CLI-set(scripts))))
+        for command, expected in REQUIRED_TARGETS.items():
+            if scripts[command].strip() != expected:
+                raise ValueError(f"CLI {command} has an unexpected entry point target.")
         for command, target in scripts.items():
             match = re.fullmatch(r"(midivolt(?:\.[A-Za-z_][\w]*)*):([A-Za-z_]\w*)", target.strip())
             if not match:
