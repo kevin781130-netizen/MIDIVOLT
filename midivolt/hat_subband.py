@@ -76,7 +76,7 @@ def _subband_peaks(
     threshold = np.maximum(background + cfg.mad_multiplier * 1.4826 * deviation, floor)
     # Prevent a loud, steady high-frequency bed with weak periodic movement
     # from creating arbitrary candidate notes.
-    attacks = flux / np.maximum(background, floor / cfg.min_attack_ratio, 1e-12)
+    attacks = flux / np.maximum(np.maximum(background, floor / cfg.min_attack_ratio), 1e-12)
     peaks, _ = signal.find_peaks(
         flux, height=threshold,
         distance=max(1, int(round(cfg.minimum_spacing_seconds / hop_seconds))),
