@@ -221,8 +221,6 @@ def test_wheel_record_detects_wrong_sizes_and_duplicate_manifest_rows(tmp_path):
     with zipfile.ZipFile(wheel, "r") as archive:
         files = {name: archive.read(name) for name in archive.namelist()}
     name = "midivolt-0.1.0rc1.dist-info/RECORD"
-    text = files[name].decode()
-    files[name] = text.replace(",sha256=", ",sha256=", 1).replace(",15\\n", ",150\\n", 1).encode()
     # Use a reliable first Python module size mutation rather than depending
     # on an exact line's length.
     rows = list(csv.reader(io.StringIO(files[name].decode())))
@@ -231,7 +229,7 @@ def test_wheel_record_detects_wrong_sizes_and_duplicate_manifest_rows(tmp_path):
             row[2] = str(int(row[2]) + 1)
             break
     buf = io.StringIO()
-    csv.writer(buf, lineterminator="\\n").writerows(rows)
+    csv.writer(buf, lineterminator="\n").writerows(rows)
     files[name] = buf.getvalue().encode()
     with zipfile.ZipFile(wheel, "w") as archive:
         for item, payload in files.items():
