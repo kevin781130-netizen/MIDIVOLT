@@ -99,7 +99,7 @@ class ShapeGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "magnitude"):
             hat_shape_features(mag[0], freq, idx, hop_seconds=.01, config=HatShapeGate())
         broken = mag.copy()
-        broken[0, 0] = float("nan")
+        broken[np.flatnonzero(freq >= 5200)[0], idx] = float("nan")
         with self.assertRaisesRegex(ValueError, "Nonfinite"):
             hat_shape_features(broken, freq, idx, hop_seconds=.01, config=HatShapeGate())
 
