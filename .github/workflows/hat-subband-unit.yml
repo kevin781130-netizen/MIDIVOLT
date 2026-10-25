@@ -3,8 +3,6 @@ name: MIDIVOLT Hi-hat Subband Unit Gate
 # Opt-in one-off CPU-only synthetic unit validation. No external datasets.
 on:
   workflow_dispatch:
-  push:
-    branches: [feat/drum-audit-20261025]
 
 permissions:
   contents: read
