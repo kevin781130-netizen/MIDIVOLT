@@ -29,6 +29,7 @@ REQUIRED_TARGETS = {
     "midivolt-compose-audit": "midivolt.composition_audit_cli:main",
     "midivolt-compose-doctor": "midivolt.composition_doctor_cli:main",
     "midivolt-compose-benchmark": "midivolt.composition_benchmark_cli:main",
+    "midivolt-compose-verify": "midivolt.composition_verification_cli:main",
     "midivolt-cubase": "midivolt.cubase_cli:main",
     "midivolt-beta-gate": "midivolt.beta_gate_cli:main",
 }
