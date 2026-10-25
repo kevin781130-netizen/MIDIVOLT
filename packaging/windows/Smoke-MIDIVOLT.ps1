@@ -46,7 +46,8 @@ try {
     foreach ($extra in @("midivolt-model", "midivolt-env", "midivolt-accept",
                           "midivolt-tsov", "midivolt-bridge",
                           "midivolt-compose", "midivolt-compose-accept",
-                          "midivolt-compose-audit", "midivolt-beta-gate",
+                          "midivolt-compose-audit", "midivolt-compose-doctor",
+                          "midivolt-beta-gate",
                           "midivolt-plan", "midivolt-transcribe", "midivolt-evaluate")) {
         Invoke-CLI $extra @("--help")
     }
