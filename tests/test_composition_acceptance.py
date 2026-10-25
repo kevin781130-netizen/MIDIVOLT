@@ -35,7 +35,12 @@ class FixtureProvider:
 def fixtures(tmp_path, monkeypatch):
     root = tmp_path / "Text2midi"
     (root / "model").mkdir(parents=True)
-    (root / "model" / "transformer_model.py").write_text("# synthetic fixture")
+    (root / "model" / "transformer_model.py").write_text(
+        "class Transformer:\n"
+        "    def __init__(self, device=None):\n"
+        "        T5EncoderModel.from_pretrained('google/flan-t5-base')\n"
+        "    def generate(self): pass\n"
+    )
     env = tmp_path / "model-env"
     env.mkdir()
     ckpt = tmp_path / "weights.bin"
@@ -45,6 +50,8 @@ def fixtures(tmp_path, monkeypatch):
     tokenizer = tmp_path / "tokenizer"
     tokenizer.mkdir()
     (tokenizer / "tokenizer_config.json").write_text("{}")
+    (tokenizer / "config.json").write_text('{"model_type":"t5"}')
+    (tokenizer / "model.safetensors").write_bytes(b"synthetic placeholder, not weights")
     src = tmp_path / "original.mid"
     original = pretty_midi.PrettyMIDI(initial_tempo=60)
     track = pretty_midi.Instrument(program=73, name="Locked melody")
