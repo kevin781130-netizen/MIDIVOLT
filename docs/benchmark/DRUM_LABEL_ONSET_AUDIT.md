@@ -25,6 +25,32 @@ onsets or the same musical instrument.** GM35/36 are both legitimate
 kick labels; GM58 is Vibraslap in standard General MIDI, and a
 Roland-specific pitch-58 tom mapping must be separately established.
 
+## What the existing six-song artifact already proves by song identity
+
+Cross-song count coincidence is not sufficient: a model prediction from song A
+can **never** match a missed reference note from song B. Rechecking the
+original published per-song JSON yields:
+
+| Candidate | Extra model notes | Reference misses | Songs with BOTH | Upper bound on possible same-song pairs |
+|---|---:|---:|---:|---:|
+| ADT_STR GM35 → reference GM36 | 45 | 45 | 4 | **41** |
+| ADT_STR GM58 → reference GM43 | 18 | 7 | **0** | **0** |
+
+Therefore the **GM58→43 hypothesis cannot explain any missed reference
+events in these six samples** (the relevant errors happen in different
+songs). This does not establish what GM58 actually represents in the
+upstream decoder, and it does not prove it is never a tom in other data.
+
+GM35→36 remains potentially relevant, but between **0 and 41** candidate
+note pairs could actually coincide within the 50 ms window. Only
+event-level prediction and reference MIDI timestamps can resolve the
+range. This is NOT a claim that 41 notes are wrongly labeled.
+
+The read-only report auditor
+[midivolt/drum_report_audit.py](../../midivolt/drum_report_audit.py)
+now calculates song-specific upper bounds instead of drawing conclusions
+from globally aggregated pitch counts alone.
+
 ## New paired-onset analysis
 
 Source: [midivolt/drum_label_pairs.py](../../midivolt/drum_label_pairs.py)
