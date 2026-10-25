@@ -19,6 +19,7 @@ from scipy import ndimage, signal
 from midivolt.hat_candidate_confidence import (
     HatCandidateConfidence, evaluate_candidate_confidence, VERSION as CONFIDENCE_VERSION,
 )
+from midivolt.hat_candidate_ranker import HatRankerModel, score_onset, SCHEMA as RANKER_SCHEMA
 
 
 VERSION = "hat-dual-subband-candidates-r1-20261025"
@@ -103,6 +104,7 @@ def propose_new_hat_onsets(
     *,
     config: HatSubbandConfig,
     confidence: HatCandidateConfidence | None = None,
+    ranker: HatRankerModel | None = None,
 ) -> tuple[list[tuple[float, float]], dict]:
     """Return [(seconds, rms)] of ONLY genuinely new optional GM42 events.
 
@@ -119,6 +121,10 @@ def propose_new_hat_onsets(
         raise ValueError("HatSubbandConfig required")
     if confidence is not None and not isinstance(confidence, HatCandidateConfidence):
         raise ValueError("confidence must be HatCandidateConfidence")
+    if ranker is not None and not isinstance(ranker, HatRankerModel):
+        raise ValueError("ranker must be a verified TRAIN-only HatRankerModel")
+    if confidence is not None and ranker is not None:
+        raise ValueError("Cannot apply competing fixed confidence gate and learned ranker")
     if (spec.ndim != 2 or hz.ndim != 1 or time.ndim != 1
             or spec.shape != (len(hz), len(time))):
         raise ValueError("Expected STFT [frequency, frame] and aligned time axis")
@@ -146,8 +152,9 @@ def propose_new_hat_onsets(
     used_b: set[int] = set()
     rejects = {"unpaired_subband": 0, "existing_hat": 0,
                "spectral_nonhat": 0, "quiet_event": 0, "new_hat_spacing": 0,
-               "candidate_confidence": 0}
+               "candidate_confidence": 0, "candidate_ranker": 0}
     confidence_reasons: dict[str, int] = {}
+    ranker_scores: list[float] = []
     max_gap = config.max_subband_gap_seconds + 1e-10
     duration = len(pcm) / sample_rate
     high = (hz >= SUBBANDS[0][0]) & (hz < SUBBANDS[-1][1])
@@ -199,11 +206,26 @@ def propose_new_hat_onsets(
                 for reason in reasons:
                     confidence_reasons[reason] = confidence_reasons.get(reason, 0) + 1
                 continue
+        if ranker is not None:
+            classified = score_onset(
+                spec, hz, peak_index, hop_seconds=hop_seconds, model=ranker,
+            )
+            if classified["ranker_probability"] is not None:
+                ranker_scores.append(classified["ranker_probability"])
+            if not classified["accepted"]:
+                rejects["candidate_ranker"] += 1
+                continue
         accepted.append((onset, rms))
     return accepted, {
         "version": VERSION, "subband_peak_counts": [len(a), len(b)],
         "new_candidates": len(accepted), "rejected": rejects,
         "does_not_modify_original_events": True,
+        "candidate_ranker": {
+            "enabled": ranker is not None, "schema": RANKER_SCHEMA,
+            "rejected": rejects["candidate_ranker"],
+            "scored_candidates": len(ranker_scores),
+            "frozen_threshold": ranker.decision_threshold if ranker else None,
+        },
         "candidate_confidence": {
             "enabled": confidence is not None,
             "version": CONFIDENCE_VERSION,
