@@ -18,6 +18,7 @@ from scipy.io import wavfile
 from midivolt.hat_shape import HatShapeGate, hat_shape_features, FEATURE_VERSION
 from midivolt.hat_subband import HatSubbandConfig, propose_new_hat_onsets, VERSION as SUBBAND_VERSION
 from midivolt.hat_candidate_confidence import HatCandidateConfidence, VERSION as CONFIDENCE_VERSION
+from midivolt.hat_candidate_ranker import HatRankerModel, SCHEMA as RANKER_SCHEMA
 
 TARGET_SR = 22050
 FFT_SIZE = 1024
@@ -127,6 +128,7 @@ def transcribe_drum_wav(
     hat_shape_gate: HatShapeGate | None = None,
     hat_subband_config: HatSubbandConfig | None = None,
     hat_candidate_confidence: HatCandidateConfidence | None = None,
+    hat_ranker_model: HatRankerModel | None = None,
 ) -> tuple[pretty_midi.PrettyMIDI, dict]:
     """Return drum MIDI and diagnostics, with all event times in WAV seconds.
 
@@ -146,6 +148,12 @@ def transcribe_drum_wav(
         raise ValueError("hat_candidate_confidence must be a HatCandidateConfidence")
     if hat_candidate_confidence is not None and hat_subband_config is None:
         raise ValueError("hat_candidate_confidence requires opt-in hat_subband_config")
+    if hat_ranker_model is not None and not isinstance(hat_ranker_model, HatRankerModel):
+        raise ValueError("hat_ranker_model requires a TRAIN-only HatRankerModel")
+    if hat_ranker_model is not None and hat_subband_config is None:
+        raise ValueError("hat_ranker_model requires opt-in hat_subband_config")
+    if hat_ranker_model is not None and hat_candidate_confidence is not None:
+        raise ValueError("Select either learned hat ranker or fixed confidence, not both")
     hat = hat_config or HatDetectionConfig()
     audio, sr = read_audio(Path(path))
     midi = pretty_midi.PrettyMIDI(initial_tempo=tempo, resolution=960)
@@ -237,6 +245,7 @@ def transcribe_drum_wav(
             [event[1] for event in events if event[0] == "hat"],
             config=hat_subband_config,
             confidence=hat_candidate_confidence,
+            ranker=hat_ranker_model,
         )
         subband_diagnostic["enabled"] = True
         for onset, rms in extra:
@@ -265,6 +274,10 @@ def transcribe_drum_wav(
         },
         "counts": counts,
         "subband_candidates": subband_diagnostic,
+        "candidate_ranker": {
+            "enabled": hat_ranker_model is not None, "schema": RANKER_SCHEMA,
+            "frozen_threshold": hat_ranker_model.decision_threshold if hat_ranker_model else None,
+        },
         "candidate_confidence": {
             "enabled": hat_candidate_confidence is not None,
             "version": CONFIDENCE_VERSION,
