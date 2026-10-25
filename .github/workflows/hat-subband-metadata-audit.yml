@@ -2,8 +2,6 @@ name: MIDIVOLT E-GMD Validation Metadata Length Audit
 
 on:
   workflow_dispatch:
-  push:
-    branches: [feat/drum-audit-20261025]
 permissions:
   contents: read
 jobs:
