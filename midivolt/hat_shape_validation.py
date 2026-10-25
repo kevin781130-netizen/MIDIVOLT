@@ -21,6 +21,7 @@ from midivolt.hat_validation import (
     _aggregate, validate_validation_manifest, PRESETS,
     MIN_HAT_RECALL_GAIN, MIN_HAT_PRECISION_ABSOLUTE,
     MAX_HAT_PRECISION_DROP, MAX_ALL_PRECISION_DROP,
+    CUT21_VALIDATION_SONG_IDS,
 )
 
 SHAPE_STUDY_VERSION = "hat-shape-validation-r1-frozen"
@@ -57,6 +58,8 @@ def _assert_fresh_cohort(selection_plan: dict, records: list[dict]) -> dict:
         raise ValueError("No frozen historical exclusions or new selection list")
     if len(excluded) != len(set(excluded)):
         raise ValueError("Invalid duplicate exclusions in selection plan")
+    if set(excluded) != CUT21_VALIDATION_SONG_IDS:
+        raise ValueError("Excluded song IDs differ from frozen six-song Cut-21 Validation cohort")
     identities = {item.get("id") for item in selected}
     seen = {r.get("song_id") for r in records}
     if identities != seen or len(selected) != len(records) or len(seen) != len(records):
