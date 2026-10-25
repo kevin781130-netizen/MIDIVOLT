@@ -23,6 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--require-cuda", action="store_true",
                    help="Require an actually passing CUDA kernel before declaring probe ready")
     p.add_argument("--timeout", type=float, default=90)
+    p.add_argument("--confirm-model-load", action="store_true",
+                   help="DANGEROUS: opt in to trusted upstream code, REMI pickle and real checkpoint deserialization; NO MIDI generation")
+    p.add_argument("--model-load-timeout", type=float, default=1200)
     return p
 
 
@@ -36,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
             t5_dir=args.t5_dir, output_path=args.out,
             confirm_imports=args.confirm_imports, cuda_smoke=args.cuda_smoke,
             require_cuda=args.require_cuda, timeout=args.timeout,
+            confirm_model_load=args.confirm_model_load,
+            model_load_timeout=args.model_load_timeout,
         )
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0 if report["ready_for_inference_attempt"] else 3
