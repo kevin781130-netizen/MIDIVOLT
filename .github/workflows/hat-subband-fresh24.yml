@@ -5,9 +5,6 @@ name: MIDIVOLT Fresh 24-song Hi-hat Subband Validation
 # Only CPU DSP and official E-GMD Validation audio; no pretrained weights.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
