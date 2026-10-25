@@ -17,6 +17,7 @@ from pathlib import Path
 from midivolt.egmd_import import read_metadata
 from midivolt.hat_validation import (
     VALIDATION_DATASET, PRESET_REVISION, choose_validation_metadata, preset_sha256,
+    CUT21_VALIDATION_SONG_IDS,
 )
 
 SOURCE = "https://magenta.tensorflow.org/datasets/e-gmd"
@@ -47,6 +48,11 @@ def prepare(
         ):
             raise ValueError("Prior Validation plan contains duplicate/invalid song identities")
         exclude_ids = frozenset(ids)
+        if exclude_ids != CUT21_VALIDATION_SONG_IDS:
+            raise ValueError(
+                "Previous Validation plan must contain exactly the six "
+                "frozen Cut-21 song IDs, not an arbitrary replacement set"
+            )
     rows = choose_validation_metadata(
         read_metadata(csv_path),
         count=count, short_fill_count=fills,
