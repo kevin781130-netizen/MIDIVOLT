@@ -90,7 +90,7 @@ def test_valid_windows_zip_includes_identical_wheel_and_license(tmp_path):
     "midivolt-0.1.0rc1.dist-info/entry_points.txt",
 ])
 def test_missing_wheel_notices_or_entrypoints_fail(tmp_path, omission):
-    with pytest.raises(ValueError, match="missing required"):
+    with pytest.raises(ValueError, match="missing required|Wheel must include"):
         inspect_wheel(synthetic_wheel(tmp_path, omit=omission))
 
 
