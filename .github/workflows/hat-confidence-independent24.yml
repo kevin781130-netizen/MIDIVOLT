@@ -1,0 +1,74 @@
+name: MIDIVOLT Independent GM42 Confidence Validation
+
+# Explicit one-time CPU-only research; NOT triggered on ordinary pushes.
+# Executed on feat/drum-audit-20261025 only with commit marker.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/drum-audit-20261025
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  candidate-confidence:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hat-confidence-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      STUDY_DIR: /tmp/midivolt-hat-confidence-cut26
+      GH_TOKEN: ${{ github.token }}
+      PYTHONHASHSEED: '0'
+
+    steps:
+      - name: Checkout frozen code and pre-registered gates
+        uses: actions/checkout@v4
+
+      - name: Install Python 3.11 CPU
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install small DSP and official E-GMD ZIP reader only
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3" "remotezip>=0.12,<1"
+
+      - name: Validate new confidence logic, leakage locks and baseline
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_hat_candidate_confidence.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_candidate_confidence_validation.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
+
+      - name: Restore exact original Cut-25 selection from GitHub
+        run: |
+          mkdir -p "$STUDY_DIR/previous"
+          gh api repos/kevin781130-netizen/MIDIVOLT/actions/artifacts/12601716951/zip > "$STUDY_DIR/cut25.zip"
+          python -m zipfile -t "$STUDY_DIR/cut25.zip"
+          python -m zipfile -e "$STUDY_DIR/cut25.zip" "$STUDY_DIR/previous"
+          python - <<'PY'
+          from pathlib import Path
+          from scripts.egmd_hat_confidence_real import _original_plan_ok
+          _original_plan_ok(Path("/tmp/midivolt-hat-confidence-cut26/previous/validation_selection_plan.json"))
+          print("Original Cut-25 source-song identities and plan SHA-256 verified.")
+          PY
+
+      - name: Evaluate 24 NEW official Validation pairs with 3 frozen arms
+        run: |
+          python -m scripts.egmd_hat_confidence_real \
+            --output "$STUDY_DIR/new" \
+            --cut25-plan "$STUDY_DIR/previous/validation_selection_plan.json"
+
+      - name: Upload scores and source checksums only, no third-party media
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-confidence-independent24-results
+          path: |
+            /tmp/midivolt-hat-confidence-cut26/new/selection_plan.json
+            /tmp/midivolt-hat-confidence-cut26/new/candidate_confidence_results.json
+          if-no-files-found: warn
+          retention-days: 14
