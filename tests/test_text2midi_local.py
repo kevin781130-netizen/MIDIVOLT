@@ -116,3 +116,112 @@ def test_runner_source_requires_local_encoder_redirect():
     # The stdlib helper is testable without importing torch or running model code.
     import midivolt.model_runners.text2midi_runner as runner
     assert callable(runner.main)
+
+
+
+def test_k15_load_only_runner_executes_strict_state_path_with_stubs(
+        tmp_path, monkeypatch, capsys):
+    """Exact runner load-only path, with stubbed torch and REMI, NOT pretrained."""
+    import contextlib
+    import sys
+    import types
+    from midivolt.model_runners import text2midi_runner as runner
+
+    root = tmp_path / "approved-upstream"
+    root.mkdir()
+    checkpoint = tmp_path / "checkpoint.bin"
+    checkpoint.write_bytes(b"fake checkpoint bytes")
+    vocab = tmp_path / "trusted-remi.pkl"
+    vocab.write_bytes(b"fixture pickle not deserialized by actual code")
+    t5 = tmp_path / "t5"
+    t5.mkdir()
+    seen = {}
+    class FakeParameters:
+        def numel(self):
+            return 1200
+    class FakeTransformer:
+        def __init__(self, *args, **kwargs):
+            seen["model_kwargs"] = kwargs
+            seen["model_args"] = args
+        def load_state_dict(self, state, *, strict):
+            assert strict is True
+            seen["state"] = state
+        def to(self, device):
+            assert device == "cpu"
+            return self
+        def eval(self):
+            return self
+        def parameters(self):
+            return [FakeParameters()]
+    class FakeT5Tokenizer:
+        @classmethod
+        def from_pretrained(cls, directory, **kwargs):
+            seen["tokenizer"] = (directory, kwargs)
+            return cls()
+    class FakeT5EncoderModel:
+        pass
+    fake_torch = types.ModuleType("torch")
+    fake_torch.__version__ = "0.fixture"
+    fake_torch.cuda = types.SimpleNamespace(is_available=lambda: False)
+    fake_torch.backends = types.SimpleNamespace(
+        mps=types.SimpleNamespace(is_available=lambda: False))
+    def load(path, **kwargs):
+        seen["load"] = (path, kwargs)
+        return {"layer.weight": "fake data"}
+    fake_torch.load = load
+    fake_transformers = types.ModuleType("transformers")
+    fake_transformers.T5Tokenizer = FakeT5Tokenizer
+    fake_transformers.T5EncoderModel = FakeT5EncoderModel
+    fake_model = types.ModuleType("model")
+    fake_model.__path__ = []
+    fake_upstream = types.ModuleType("model.transformer_model")
+    fake_upstream.Transformer = FakeTransformer
+
+    for name, fake in (
+        ("torch", fake_torch),
+        ("transformers", fake_transformers),
+        ("model", fake_model),
+        ("model.transformer_model", fake_upstream),
+    ):
+        monkeypatch.setitem(sys.modules, name, fake)
+    monkeypatch.setattr(sys, "path", sys.path[:])
+    monkeypatch.setattr(runner, "inspect_local_t5", lambda _: {})
+    monkeypatch.setattr(runner, "inspect_upstream_text2midi_contract", lambda _: {})
+    monkeypatch.setattr(
+        runner, "redirect_known_t5_encoder",
+        lambda *a: contextlib.nullcontext()
+    )
+    monkeypatch.setattr(runner.pickle, "load", lambda _: list(range(121)))
+    monkeypatch.setattr(sys, "argv", [
+        "text2midi_runner.py", "--checkout", str(root),
+        "--checkpoint", str(checkpoint), "--vocab", str(vocab),
+        "--t5-dir", str(t5), "--load-only",
+    ])
+    runner.main()
+    result = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert seen["load"][1]["weights_only"] is True
+    assert seen["model_args"][0] == 121
+    assert seen["state"] == {"layer.weight": "fake data"}
+    assert result["model_parameter_count"] == 1200
+    assert result["model_state_dict_strict_loaded"] is True
+    assert result["pretrained_inference_executed"] is False
+    assert result["midi_written"] is False
+    assert result["commercial_release_ready"] is False
+    assert not list(tmp_path.glob("*.mid"))
+
+
+def test_k15_runner_rejects_implicit_generation_before_upstream_import(
+        monkeypatch, capsys):
+    import sys
+    from midivolt.model_runners import text2midi_runner as runner
+    monkeypatch.setattr(sys, "argv", [
+        "text2midi_runner.py",
+        "--checkout", "not-used",
+        "--checkpoint", "not-used",
+        "--vocab", "not-used",
+        "--t5-dir", "not-used",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        runner.main()
+    assert exc.value.code == 2
+    assert "Generation requires --prompt and --out" in capsys.readouterr().err
