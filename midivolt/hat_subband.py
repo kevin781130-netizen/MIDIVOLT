@@ -74,9 +74,11 @@ def _subband_peaks(
     floor = max(float(positive.max()) * cfg.global_floor_fraction,
                 float(np.percentile(positive, 25)) * 0.75)
     threshold = np.maximum(background + cfg.mad_multiplier * 1.4826 * deviation, floor)
-    # Prevent a loud, steady high-frequency bed with weak periodic movement
-    # from creating arbitrary candidate notes.
-    attacks = flux / np.maximum(np.maximum(background, floor / cfg.min_attack_ratio), 1e-12)
+    # Measure local attack contrast against background, NOT the threshold
+    # floor. The floor may be dominated by an earlier loud hat, while the
+    # current weaker hi-hat is still a distinct local transient.
+    contrast_floor = max(float(np.percentile(positive, 10)) * 0.05, 1e-12)
+    attacks = flux / np.maximum(background, contrast_floor)
     peaks, _ = signal.find_peaks(
         flux, height=threshold,
         distance=max(1, int(round(cfg.minimum_spacing_seconds / hop_seconds))),
