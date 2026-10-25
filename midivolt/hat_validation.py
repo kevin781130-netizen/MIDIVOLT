@@ -28,6 +28,16 @@ from midivolt.drum_suite import _normalize_reference
 
 PRESET_REVISION = "hat-validation-presets-v1-locked"
 VALIDATION_DATASET = "E-GMD v1.0.0"
+# Pinned from the published successful Cut-21 six-song Validation artifact.
+# These exact performances MUST NOT be used as unseen validation in Cut 22.
+CUT21_VALIDATION_SONG_IDS = frozenset({
+    "drummer3/session1/39",
+    "drummer7/session2/102",
+    "drummer9/session1/12",
+    "drummer1/session1/145",
+    "drummer1/session2/100",
+    "drummer7/session2/120",
+})
 # All candidate definitions are set in source. NO optimization against TEST data.
 PRESETS = {
     "baseline": HatDetectionConfig(),
