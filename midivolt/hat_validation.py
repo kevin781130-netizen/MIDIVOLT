@@ -52,6 +52,84 @@ MIN_HAT_RECALL_GAIN = 0.02
 MIN_HAT_PRECISION_ABSOLUTE = 0.60
 
 
+
+def choose_validation_metadata(
+    rows: list[dict],
+    *,
+    count: int = 6,
+    short_fill_count: int = 2,
+    max_duration_s: float = 35.0,
+    kit_name: str = "Acoustic Kit",
+    seed: str = "midivolt-hat-validation-selection-v1",
+) -> list[dict]:
+    """Choose independent official VALIDATION performances, before WAV reading.
+
+    Do not apply test-set selection logic or use any inferred drum events.
+    Requesting unavailable beat/fill strata fails rather than borrowing
+    official TEST or TRAIN examples.
+    """
+    if not 2 <= count <= 24 or not 0 <= short_fill_count < count:
+        raise ValueError("Invalid requested Validation beat/fill selection sizes")
+    if not math.isfinite(max_duration_s) or not 1 <= max_duration_s <= 180:
+        raise ValueError("Invalid maximum Validation excerpt duration")
+    previous = {}
+    selected = {"beat": [], "fill": []}
+    for row in rows:
+        identity = row.get("id")
+        split = row.get("split")
+        if not isinstance(identity, str) or not identity:
+            continue
+        if identity in previous and previous[identity] != split:
+            raise ValueError("Original E-GMD song ID spans train/test/validation")
+        previous[identity] = split
+        if split != "validation" or row.get("kit_name") != kit_name:
+            continue
+        typ = row.get("beat_type")
+        if typ not in selected:
+            continue
+        try:
+            duration = float(row.get("duration", ""))
+            bpm = float(row.get("bpm", ""))
+        except (ValueError, TypeError):
+            continue
+        if not (math.isfinite(duration) and 1 <= duration <= max_duration_s):
+            continue
+        if not (math.isfinite(bpm) and 30 <= bpm <= 400):
+            continue
+        if not row.get("style") or not row.get("drummer"):
+            continue
+        selected[typ].append(row)
+
+    take = {"beat": count - short_fill_count, "fill": short_fill_count}
+    result = []
+    for typ in ("beat", "fill"):
+        unique = {}
+        for row in selected[typ]:
+            key = row["id"]
+            if key in unique and unique[key]["audio_filename"] != row["audio_filename"]:
+                raise ValueError("Duplicate validation performance with conflicting WAV")
+            unique[key] = row
+        if len(unique) < take[typ]:
+            raise ValueError(f"Only {len(unique)} official Validation {typ} performances; "
+                             f"requested {take[typ]}")
+        pool = list(unique.values())
+        genres = Counter()
+        drummers = Counter()
+        for _ in range(take[typ]):
+            def priority(r):
+                genre = r["style"].split("/")[0]
+                random_hash = hashlib.sha256((seed + "|" + r["id"]).encode()).hexdigest()
+                return (drummers[r["drummer"]] * 20 + genres[genre] * 8,
+                        random_hash, r["id"])
+            pick = min(pool, key=priority)
+            result.append(pick)
+            drummers[pick["drummer"]] += 1
+            genres[pick["style"].split("/")[0]] += 1
+            pool.remove(pick)
+    if len({x["id"] for x in result}) != len(result):
+        raise RuntimeError("Cross-stratum validation song duplication")
+    return result
+
 def preset_sha256() -> str:
     from dataclasses import asdict
     payload = [[name, asdict(settings)] for name, settings in PRESETS.items()]
