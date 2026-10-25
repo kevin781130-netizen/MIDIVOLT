@@ -26,7 +26,8 @@ import pretty_midi
 import requests
 from scipy.io import wavfile
 
-from midivolt.egmd_import import choose_test_samples, read_metadata
+from midivolt.egmd_import import read_metadata
+from midivolt.egmd_selection import select_diverse_test_rows, selection_summary
 from midivolt.drums import transcribe_drum_wav
 from midivolt.drum_suite import _normalize_reference, _summarize
 from midivolt.compare_drums import evaluate_drums
@@ -84,45 +85,6 @@ def preflight_ranges(url: str) -> int:
         response.close()
 
 
-def choose_short_diverse(rows: list[dict], count: int = 3, max_duration: float = 22.0) -> list[dict]:
-    """Select distinct upstream TEST performances, favor short varied fills."""
-    if count < 1 or count > 5:
-        raise ValueError("1..5 samples supported in this bounded research run")
-    eligible = [
-        row for row in rows
-        if row["split"] == "test"
-        and row["kit_name"] == "Acoustic Kit"
-        and row.get("duration")
-        and 1.0 <= float(row["duration"]) <= max_duration
-    ]
-    by_style: dict[str, list[dict]] = defaultdict(list)
-    for row in eligible:
-        by_style[row["style"].split("/")[0]].append(row)
-    for style in by_style:
-        by_style[style].sort(key=lambda r: (
-            float(r["duration"]),
-            hashlib.sha256(r["id"].encode()).hexdigest(),
-        ))
-    chosen: list[dict] = []
-    seen: set[str] = set()
-    while len(chosen) < count and any(by_style.values()):
-        for style in sorted(by_style):
-            if len(chosen) >= count:
-                break
-            if not by_style[style]:
-                continue
-            row = by_style[style].pop(0)
-            if row["id"] not in seen:
-                chosen.append(row)
-                seen.add(row["id"])
-    if len(chosen) < count:
-        raise RuntimeError(
-            f"Only {len(chosen)} eligible unique short Acoustic Kit test performances; "
-            "refusing to substitute train/validation material"
-        )
-    return chosen
-
-
 def _find_member(members: list[str], target: str) -> str:
     path = target.strip("/")
     matches = [name for name in members if name == path or name.endswith("/" + path)]
@@ -160,6 +122,8 @@ def acquire_selected(zip_url: str, rows: list[dict], base: Path, *, max_entry_mb
                 "source_song_id": row["id"],
                 "source_split": row["split"],
                 "style": row["style"],
+                "drummer": row["drummer"],
+                "beat_type": row["beat_type"],
                 "bpm": float(row["bpm"]),
                 "duration_metadata_seconds": float(row["duration"]),
                 "kit_name": row["kit_name"],
@@ -174,13 +138,15 @@ def acquire_selected(zip_url: str, rows: list[dict], base: Path, *, max_entry_mb
 
 
 def _float_pcm(raw: np.ndarray) -> np.ndarray:
+    # Convert to mono without discarding integer PCM scaling information.
+    dtype = raw.dtype
     if raw.ndim == 2:
-        raw = raw.astype(np.float32).mean(axis=1)
-    if raw.dtype == np.uint8:
+        raw = raw.mean(axis=1, dtype=np.float32)
+    if dtype == np.uint8:
         return (raw.astype(np.float32) - 128.0) / 128.0
-    if np.issubdtype(raw.dtype, np.integer):
-        return raw.astype(np.float32) / (2.0 ** (8 * raw.dtype.itemsize - 1))
-    if np.issubdtype(raw.dtype, np.floating):
+    if np.issubdtype(dtype, np.integer):
+        return raw.astype(np.float32) / (2.0 ** (8 * dtype.itemsize - 1))
+    if np.issubdtype(dtype, np.floating):
         return raw.astype(np.float32)
     raise ValueError("Unsupported PCM dtype: " + str(raw.dtype))
 
@@ -297,24 +263,37 @@ def run(args) -> int:
     # Prevent the default model benchmark running without explicit research opt-in.
     if not args.research_only:
         raise RuntimeError("Explicit --research-only is required.")
-    if args.max_samples < 1 or args.max_samples > 5:
-        raise RuntimeError("--max-samples must be 1..5")
+    if args.max_samples < 1 or args.max_samples > 24:
+        raise RuntimeError("--max-samples must be 1..24")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     csvpath, csvhash = get_small_csv(output / "metadata.csv")
     rows = read_metadata(csvpath)
-    selection = choose_short_diverse(rows, count=args.max_samples, max_duration=args.max_duration)
+    selection = select_diverse_test_rows(
+        rows, count=args.max_samples, min_duration=args.min_duration,
+        max_duration=args.max_duration, min_drummers=args.min_drummers,
+        kit=args.kit,
+    )
     plan = {
         "dataset": "E-GMD v1.0.0",
         "metadata_url": CSV_URL, "metadata_sha256": csvhash,
         "archive_url": ZIP_URL, "declared_full_archive_sha256": ZIP_FULL_SHA256,
+        "sampling_summary": selection_summary(selection),
         "selected": [{k: row[k] for k in (
-            "id","split","style","bpm","duration","kit_name",
+            "id","drummer","split","style","beat_type","bpm","duration","kit_name",
             "audio_filename","midi_filename"
         )} for row in selection],
         "license": "CC-BY-4.0 / research only MIDIVOLT model",
     }
     (output / "selection_plan.json").write_text(json.dumps(plan, indent=2) + "\n")
+    if args.plan_only:
+        print(json.dumps({
+            "status": "selection_plan_only",
+            "sampling_summary": plan["sampling_summary"],
+            "selected": plan["selected"],
+            "metadata_sha256": csvhash,
+        }, indent=2, ensure_ascii=False))
+        return 0
     file_size = preflight_ranges(ZIP_URL)
     plan["remote_zip_size_bytes"] = file_size
     files = acquire_selected(ZIP_URL, selection, output / "private_pairs", max_entry_mb=args.max_entry_mb)
@@ -348,8 +327,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--output",type=Path,required=True)
     ap.add_argument("--upstream-root",type=Path)
-    ap.add_argument("--max-samples",type=int,default=3)
-    ap.add_argument("--max-duration",type=float,default=22.0)
+    ap.add_argument("--max-samples",type=int,default=6)
+    ap.add_argument("--min-duration",type=float,default=8.0)
+    ap.add_argument("--max-duration",type=float,default=35.0)
+    ap.add_argument("--min-drummers",type=int,default=3)
+    ap.add_argument("--kit",default="Acoustic Kit")
+    ap.add_argument("--plan-only",action="store_true",
+                    help="Metadata-only preview, no ZIP access or model weights")
     ap.add_argument("--max-entry-mb",type=int,default=28)
     ap.add_argument("--fetch-only",action="store_true")
     ap.add_argument("--research-only",action="store_true")
