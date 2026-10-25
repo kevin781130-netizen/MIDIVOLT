@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   windows-wheel-and-zip:
-    # K11: validate the actual feature PR wheel without merging into main.
+    # K11: actual PR #9 Windows packaging verification, no merge into main.
     if: startsWith(github.head_ref, 'integration/') || (github.event_name == 'pull_request' && github.event.pull_request.number == 9)
     runs-on: windows-latest
     timeout-minutes: 40
@@ -23,7 +23,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check "build>=1.2,<2"
           python -m build --wheel --outdir dist
-      - name: Validate actual wheel contents and installed CLI targets
+      - name: Validate actual wheel contents and CLI metadata
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -45,7 +45,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "wheel install failed" }
           & pwsh -NoProfile -NonInteractive -File packaging/windows/Smoke-MIDIVOLT.ps1 -PythonExe $python
           if ($LASTEXITCODE -ne 0) { throw "offline MIDI smoke failed" }
-      - name: Build self-contained installer ZIP (dependencies and Python not bundled)
+      - name: Build Windows installer ZIP (Python and dependencies not bundled)
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -63,7 +63,7 @@ jobs:
           "$digest  MIDIVOLT-Windows-0.1.0rc1-py311.zip" |
             Set-Content -Path "$zip.sha256" -Encoding ascii
           Write-Host "ARTIFACT_SHA256=$digest"
-      - name: Validate actual Windows ZIP matches independently built wheel
+      - name: Validate ZIP membership, matching wheel and checksum
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -71,8 +71,14 @@ jobs:
           if ($wheels.Count -ne 1) { throw "Expected one independently audited wheel" }
           $zip = "dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip"
           $checksumLines = @(Get-Content "$zip.sha256")
-          if ($checksumLines.Count -ne 1 -or
-              $checksumLines[0] -notmatch '^([0-9a-f]{64})  MIDIVOLT-Windows-0\.1\.0rc1-py311\.zip
+          if ($checksumLines.Count -ne 1) { throw "Expected one ZIP checksum line" }
+          if ($checksumLines[0] -notmatch '^([0-9a-f]{64})  MIDIVOLT-Windows-0\.1\.0rc1-py311\.zip$') {
+            throw "Invalid ZIP checksum manifest"
+          }
+          $expectedZipSha = $Matches[1]
+          python -m midivolt.beta_gate_cli --wheel $wheels[0].FullName --windows-zip $zip --zip-sha256 $expectedZipSha --developer-rc --out dist/windows-package-audit.json
+          if ($LASTEXITCODE -ne 0) { throw "Actual Windows ZIP package audit failed" }
+      - name: Unpack ZIP and exercise actual Windows PowerShell installer
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -93,31 +99,5 @@ jobs:
             dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip.sha256
             dist/wheel-audit.json
             dist/windows-package-audit.json
-          if-no-files-found: error
-          retention-days: 30
-) {
-            throw "Invalid independently written ZIP checksum manifest"
-          }
-          python -m midivolt.beta_gate_cli --wheel $wheels[0].FullName --windows-zip $zip --zip-sha256 $Matches[1] --developer-rc --out dist/windows-package-audit.json
-          if ($LASTEXITCODE -ne 0) { throw "Actual Windows ZIP package audit failed" }
-      - name: Unpack RC ZIP and exercise actual Windows PowerShell installer
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $extracted = Join-Path $env:RUNNER_TEMP "midivolt-rc-unpacked"
-          $installed = Join-Path $env:RUNNER_TEMP "midivolt-rc-installed"
-          Expand-Archive -Path dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip -DestinationPath $extracted
-          $installer = Join-Path $extracted "Install-MIDIVOLT.ps1"
-          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $installer -AllowNetwork -Destination $installed
-          if ($LASTEXITCODE -ne 0) { throw "Packaged PowerShell installer failed" }
-          if (-not (Test-Path (Join-Path $installed "Scripts/midivolt.exe"))) {
-            throw "Installer did not produce MIDIVOLT executable"
-          }
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MIDIVOLT-Windows-0.1.0rc1
-          path: |
-            dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip
-            dist/MIDIVOLT-Windows-0.1.0rc1-py311.zip.sha256
           if-no-files-found: error
           retention-days: 30
