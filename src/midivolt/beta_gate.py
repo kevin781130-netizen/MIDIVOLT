@@ -6,9 +6,13 @@ Cubase/real pretrained inference/commercial rights have been approved.
 """
 from __future__ import annotations
 
+import base64
 import configparser
+import csv
 from email.parser import Parser
 from hashlib import sha256
+import hmac
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -83,6 +87,47 @@ def _open_safe_zip(path: Path):
         raise
 
 
+def _verify_wheel_record(archive: zipfile.ZipFile, root: str, names: set[str]) -> int:
+    """Check the wheel's PEP 427 RECORD manifest covers every archived file.
+
+    RECORD is a consistency manifest inside the ZIP, not a cryptographic
+    signature or independent attestation of who produced the wheel.
+    """
+    record_name = root + "/RECORD"
+    if record_name not in names:
+        raise ValueError("Wheel is missing required PEP 427 RECORD integrity manifest.")
+    rows = csv.reader(io.StringIO(archive.read(record_name).decode("utf-8")))
+    listed: set[str] = set()
+    for row in rows:
+        if len(row) != 3:
+            raise ValueError("Wheel RECORD contains malformed rows.")
+        filename, digest, size = row
+        if filename not in names or filename in listed:
+            raise ValueError("Wheel RECORD contains an unknown or duplicate member.")
+        listed.add(filename)
+        if filename == record_name:
+            if digest or size:
+                raise ValueError("Wheel RECORD self-entry must have empty hash and size.")
+            continue
+        if not digest.startswith("sha256=") or not size.isascii() or not size.isdecimal():
+            raise ValueError("Wheel RECORD missing a SHA-256 digest or file size.")
+        encoded = digest[len("sha256="):]
+        try:
+            actual_digest = base64.b64decode(
+                encoded + "=" * (-len(encoded) % 4), altchars=b"-_", validate=True
+            )
+        except (ValueError, base64.binascii.Error) as exc:
+            raise ValueError("Wheel RECORD has invalid base64 digest.") from exc
+        if len(actual_digest) != 32:
+            raise ValueError("Wheel RECORD digest must be 32 bytes.")
+        actual = archive.read(filename)
+        if len(actual) != int(size) or not hmac.compare_digest(sha256(actual).digest(), actual_digest):
+            raise ValueError("Wheel RECORD size or digest mismatch: " + filename)
+    if listed != names:
+        raise ValueError("Wheel RECORD has missing or unlisted archive files.")
+    return len(listed)
+
+
 def inspect_wheel(wheel: str | Path) -> dict:
     """Check metadata, legal notices and ALL actual CLI modules inside a wheel."""
     path = Path(wheel).expanduser()
@@ -97,6 +142,7 @@ def inspect_wheel(wheel: str | Path) -> dict:
         if len(roots) != 1:
             raise ValueError("Expected exactly one wheel .dist-info/METADATA.")
         root = next(iter(roots))
+        record_entries = _verify_wheel_record(archive, root, names)
         if not root.startswith("midivolt-"):
             raise ValueError("Wrong package metadata directory.")
         def asset(suffix):
@@ -150,6 +196,9 @@ def inspect_wheel(wheel: str | Path) -> dict:
             "cli_entrypoints": sorted(scripts),
             "packaged_python_files": files, "legal_notices_packaged": True,
             "external_model_assets_embedded": False, "package_contents_verified": True,
+            "wheel_record_entries_verified": record_entries,
+            "wheel_record_integrity_verified": True,
+            "wheel_signature_or_publisher_trusted": False,
             "wheel_installed_in_clean_environment": False,
         }
 
