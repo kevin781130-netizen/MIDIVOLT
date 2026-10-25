@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "piano_seed42",
+      "prompt": "Add one separate piano accompaniment part that follows the source melody.",
+      "seed": 42,
+      "harmonic_key": "C major",
+      "minimum_structure_score": 0.75
+    },
+    {
+      "id": "piano_violin_seed43",
+      "prompt": "Add piano and violin as separate instrument parts. Preserve the source.",
+      "seed": 43,
+      "harmonic_key": "C major",
+      "minimum_structure_score": 0.75
+    },
+    {
+      "id": "bass_drums_seed44",
+      "prompt": "Add electric bass and drum kit as two separate parts.",
+      "seed": 44,
+      "programs": {"bass": 33},
+      "minimum_structure_score": 0.75
+    }
+  ]
+}
