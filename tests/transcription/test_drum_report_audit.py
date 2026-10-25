@@ -82,6 +82,25 @@ class DrumReportAuditTests(unittest.TestCase):
         self.assertTrue(all(not x["proven_pairing"] for x in out["representation_mismatch_hypotheses"]))
         self.assertEqual(out["engines"]["adt_str"]["event_micro"]["fp"], 1)
 
+    def test_candidate_kick_mapping_is_flagged_but_not_applied(self):
+        item = fixture()
+        ai = item["samples"][1]
+        ai["scores"]["micro"] = score(0, 1, 2)
+        ai["scores"]["per_gm_pitch"] = {
+            "35": score(0, 1, 0),
+            "36": score(0, 0, 1),
+            "42": score(0, 0, 1),
+        }
+        item["performance_by_engine"]["adt_str"]["event_micro"] = score(0, 1, 2)
+        item["performance_by_engine"]["adt_str"]["song_macro_f1"] = 0.0
+        audit = audit_report(item)
+        candidates = audit["representation_mismatch_hypotheses"]
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["predicted_gm_pitch"], 35)
+        self.assertEqual(candidates[0]["reference_gm_pitch"], 36)
+        self.assertFalse(candidates[0]["proven_pairing"])
+        self.assertEqual(audit["engines"]["adt_str"]["event_micro"]["f1"], 0.0)
+
     def test_engine_missing_is_rejected(self):
         item = fixture()
         item["samples"].pop()
