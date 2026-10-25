@@ -1,0 +1,79 @@
+name: MIDIVOLT E-GMD Validation DSP Hi-hat Study
+
+# Single opt-in lightweight research job: no PyTorch, Basic Pitch or ADT_STR.
+# Trigger once with [hat-validation-once] in a branch commit title.
+# Do NOT download/reupload the official 90GB archive or raw samples.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/drum-audit-20261025
+
+permissions:
+  contents: read
+
+jobs:
+  validation-hat:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hat-validation-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      STUDY_DIR: /tmp/midivolt-hat-validation
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Check out MIDIVOLT pinned revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python CPU-only
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tiny DSP research dependencies only
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3" "remotezip>=0.12,<1"
+
+      - name: Run local DSP/rights/negative-control regression suite
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_validation.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_validation_metadata.py' -v
+
+      - name: Download small official E-GMD metadata CSV only
+        run: |
+          mkdir -p "$STUDY_DIR"
+          python -c "from pathlib import Path; from scripts.egmd_mini_real import get_small_csv; print(get_small_csv(Path('/tmp/midivolt-hat-validation/official_e_gmd.csv')))"
+
+      - name: Freeze four-beat two-fill Validation selection
+        run: |
+          python -m scripts.egmd_hat_prepare \
+            --csv "$STUDY_DIR/official_e_gmd.csv" \
+            --output "$STUDY_DIR" \
+            --count 6 --fills 2
+
+      - name: Verify official license and extract SIX Validation WAV/MIDI pairs
+        run: |
+          python -m scripts.egmd_hat_prepare \
+            --csv "$STUDY_DIR/official_e_gmd.csv" \
+            --output "$STUDY_DIR" \
+            --count 6 --fills 2 \
+            --extract-range \
+            --official-cc-by-research-review
+
+      - name: Run four fixed DSP presets on official Validation only
+        run: |
+          python -m midivolt.hat_validation \
+            --manifest "$STUDY_DIR/validation_manifest_SOURCE_LICENSE_REVIEWED.json" \
+            --output "$STUDY_DIR/hat_validation_results.json"
+
+      - name: Publish metrics and provenance only, never WAV MIDI or models
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-hat-validation-research-metrics
+          path: |
+            /tmp/midivolt-hat-validation/validation_selection_plan.json
+            /tmp/midivolt-hat-validation/hat_validation_results.json
+          if-no-files-found: warn
+          retention-days: 14
