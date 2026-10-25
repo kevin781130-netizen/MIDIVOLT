@@ -233,18 +233,36 @@ def audit_report(report: dict) -> dict:
     )
     candidates = []
     for (predicted, reference), reason in LABEL_HYPOTHESES.items():
-        p, r = str(predicted), str(reference)
-        ai_pred = coverage["adt_str"].get(p, {})
-        ground = coverage["adt_str"].get(r, {})
-        if ai_pred.get("fp", 0) and ground.get("fn", 0):
+        # An unmatched prediction on one song cannot match a missing hit
+        # in a *different* song, even if aggregate totals look suspicious.
+        possibilities = []
+        for song, engines in sorted(pair.items()):
+            per_pitch = engines["adt_str"]["scores"]["per_gm_pitch"]
+            source_fp = per_pitch.get(str(predicted), {}).get("fp", 0)
+            target_fn = per_pitch.get(str(reference), {}).get("fn", 0)
+            if source_fp and target_fn:
+                possibilities.append({
+                    "song_id": song,
+                    "unmatched_source_predictions": source_fp,
+                    "unmatched_target_references": target_fn,
+                    "maximum_possible_same_song_pairs": min(source_fp, target_fn),
+                })
+        source_fp_total = coverage["adt_str"].get(str(predicted), {}).get("fp", 0)
+        target_fn_total = coverage["adt_str"].get(str(reference), {}).get("fn", 0)
+        if source_fp_total and target_fn_total:
+            bound = sum(row["maximum_possible_same_song_pairs"] for row in possibilities)
             candidates.append({
                 "predicted_gm_pitch": predicted,
                 "reference_gm_pitch": reference,
-                "unmatched_predictions_at_predicted_pitch": ai_pred["fp"],
-                "missed_reference_notes_at_reference_pitch": ground["fn"],
+                "unmatched_predictions_at_predicted_pitch": source_fp_total,
+                "missed_reference_notes_at_reference_pitch": target_fn_total,
+                "songs_with_both_errors": len(possibilities),
+                "same_song_upper_bound_on_possible_pairs": bound,
+                "per_song_upper_bounds": possibilities,
+                "cannot_explain_errors_on_this_dataset": bound == 0,
                 "note": reason,
                 "proven_pairing": False,
-                "requires_original_midi_event_timings": True,
+                "requires_original_midi_event_timings": bound > 0,
             })
 
     return {
