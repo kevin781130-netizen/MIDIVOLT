@@ -101,6 +101,47 @@ class DrumReportAuditTests(unittest.TestCase):
         self.assertFalse(candidates[0]["proven_pairing"])
         self.assertEqual(audit["engines"]["adt_str"]["event_micro"]["f1"], 0.0)
 
+    def test_gm58_to_43_aggregate_overlap_across_songs_is_not_a_pair(self):
+        item = fixture()
+        # Song 1 has an extra GM58 but no missed GM43.
+        ai = item["samples"][1]
+        ai["scores"]["per_gm_pitch"]["58"] = ai["scores"]["per_gm_pitch"].pop("35")
+        # Song 2 has a missed GM43 but no extra GM58.
+        provenance = {
+            "source_song_id": "drummer2/song2",
+            "source_split": "test",
+            "drummer": "drummer2",
+            "kit_name": "Acoustic Kit",
+        }
+        item["sample_provenance"].append(provenance)
+        for engine in ("dsp", "adt_str"):
+            item["samples"].append({
+                "engine": engine,
+                "song_id": "drummer2/song2",
+                "audio_domain": "electronic_kit_recording",
+                "failed": False,
+                "alignment_quality": {"status": "no_large_offset_detected"},
+                "scores": {
+                    "micro": score(0, 0, 1),
+                    "per_gm_pitch": {"43": score(0, 0, 1)},
+                },
+            })
+            summary = item["performance_by_engine"][engine]
+            summary["sample_count"] = 2
+            summary["song_count"] = 2
+            old = summary["event_micro"]
+            summary["event_micro"] = score(old["tp"], old["fp"], old["fn"] + 1)
+
+        out = audit_report(item)
+        suggestion = next(x for x in out["representation_mismatch_hypotheses"]
+                          if x["predicted_gm_pitch"] == 58)
+        self.assertEqual(suggestion["unmatched_predictions_at_predicted_pitch"], 1)
+        self.assertEqual(suggestion["missed_reference_notes_at_reference_pitch"], 1)
+        self.assertEqual(suggestion["songs_with_both_errors"], 0)
+        self.assertEqual(suggestion["same_song_upper_bound_on_possible_pairs"], 0)
+        self.assertTrue(suggestion["cannot_explain_errors_on_this_dataset"])
+        self.assertFalse(suggestion["requires_original_midi_event_timings"])
+
     def test_engine_missing_is_rejected(self):
         item = fixture()
         item["samples"].pop()
