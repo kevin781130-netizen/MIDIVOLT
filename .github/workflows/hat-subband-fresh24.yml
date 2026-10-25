@@ -1,6 +1,7 @@
 name: MIDIVOLT Fresh 24-song Hi-hat Subband Validation
 
 # Explicit one-off research job: marker [hat-subband-real-once].
+# Protocol v2: metadata-only adjustment to 15 Beat + 9 Fill <=90 sec.
 # Only CPU DSP and official E-GMD Validation audio; no pretrained weights.
 on:
   workflow_dispatch:
