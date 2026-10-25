@@ -7,6 +7,7 @@ No model downloads or sample templates. Emits only three GM drum voices:
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +29,33 @@ POWER_BANDS = {
     "mid": (180, 5200),
     "high": (5200, 10500),
 }
+
+
+@dataclass(frozen=True)
+class HatDetectionConfig:
+    """Independent high-hat sensitivity knobs, not a new model.
+
+    The default values exactly mirror DSP v1. Alternative parameter values
+    are for separately authorized validation-split experiments ONLY.
+    """
+    peak_fraction_scale: float = 1.0
+    flux_noise_multiplier: float = 3.0
+    min_high_power_share: float = 0.12
+    min_high_to_mid_ratio: float = 2.5
+    min_rms: float = 0.001
+
+    def __post_init__(self):
+        fields = (
+            ("peak_fraction_scale", self.peak_fraction_scale, 0.25, 2.0),
+            ("flux_noise_multiplier", self.flux_noise_multiplier, 1.0, 6.0),
+            ("min_high_power_share", self.min_high_power_share, 0.03, 0.4),
+            ("min_high_to_mid_ratio", self.min_high_to_mid_ratio, 0.5, 6.0),
+            ("min_rms", self.min_rms, 0.0002, 0.01),
+        )
+        for name, value, low, high in fields:
+            if not math.isfinite(value) or not low <= value <= high:
+                raise ValueError(f"HatDetectionConfig.{name} must be finite in [{low}, {high}]")
+
 
 
 def read_audio(path: Path) -> tuple[np.ndarray, int]:
@@ -66,15 +94,23 @@ def _power_shares(magnitude: np.ndarray, freq: np.ndarray, i: int) -> tuple[floa
     return tuple(v / total if total > 1e-14 else 0.0 for v in parts)
 
 
-def _accept(kind: str, shares: tuple[float, float, float]) -> bool:
+def _accept(
+    kind: str, shares: tuple[float, float, float],
+    hat: HatDetectionConfig | None = None,
+) -> bool:
     low, mid, high = shares
     if kind == "kick":
         return low >= 0.38 and low >= mid
     if kind == "snare":
         return mid >= 0.43 and mid >= 1.8 * high
     if kind == "hat":
-        # Hat can coexist with a loud kick; check high-to-mid ratio too.
-        return high >= 0.12 and high >= 2.5 * mid
+        # Defaults reproduce the original DSP v1 exactly. Independently vary
+        # only the high-frequency criteria on a held-out validation split.
+        config = hat or HatDetectionConfig()
+        return (
+            high >= config.min_high_power_share
+            and high >= config.min_high_to_mid_ratio * mid
+        )
     return False
 
 
@@ -83,6 +119,7 @@ def transcribe_drum_wav(
     *,
     tempo: float = 120.0,
     min_peak_fraction: float = 0.09,
+    hat_config: HatDetectionConfig | None = None,
 ) -> tuple[pretty_midi.PrettyMIDI, dict]:
     """Return drum MIDI and diagnostics, with all event times in WAV seconds.
 
@@ -90,8 +127,11 @@ def transcribe_drum_wav(
     """
     if not (20 <= tempo <= 400):
         raise ValueError("Drum MIDI grid tempo must be 20..400 BPM")
-    if not (0.01 <= min_peak_fraction <= 0.8):
-        raise ValueError("min_peak_fraction must be 0.01..0.8")
+    if not math.isfinite(min_peak_fraction) or not (0.01 <= min_peak_fraction <= 0.8):
+        raise ValueError("min_peak_fraction must be finite and 0.01..0.8")
+    if hat_config is not None and not isinstance(hat_config, HatDetectionConfig):
+        raise ValueError("hat_config must be a HatDetectionConfig")
+    hat = hat_config or HatDetectionConfig()
     audio, sr = read_audio(Path(path))
     midi = pretty_midi.PrettyMIDI(initial_tempo=tempo, resolution=960)
     track = pretty_midi.Instrument(program=0, is_drum=True, name=f"drums | {Path(path).stem}")
@@ -118,8 +158,12 @@ def transcribe_drum_wav(
         if not len(nonzero):
             continue
         threshold = max(
-            float(np.max(flux)) * min_peak_fraction,
-            float(np.percentile(nonzero, 60)) * 3.0,
+            float(np.max(flux)) * min_peak_fraction * (
+                hat.peak_fraction_scale if kind == "hat" else 1.0
+            ),
+            float(np.percentile(nonzero, 60)) * (
+                hat.flux_noise_multiplier if kind == "hat" else 3.0
+            ),
         )
         peaks, _ = signal.find_peaks(
             flux, height=threshold, prominence=threshold * 0.5,
@@ -133,14 +177,14 @@ def transcribe_drum_wav(
             # Classify on the transient's spectral profile, not the onset's
             # nominal frequency-band label alone.
             shares = _power_shares(magnitude, frequencies, int(i))
-            if not _accept(kind, shares):
+            if not _accept(kind, shares, hat):
                 ignored += 1
                 continue
             # Exclude tiny events amid strong background/silence.
             start = max(0, round(onset * sr))
             stop = min(len(audio), start + round(0.07 * sr))
             rms = float(np.sqrt(np.mean(audio[start:stop] ** 2))) if stop > start else 0.0
-            if rms < 0.001:
+            if rms < (hat.min_rms if kind == "hat" else 0.001):
                 ignored += 1
                 continue
             candidates.append((max(0.0, onset), rms))
@@ -169,6 +213,13 @@ def transcribe_drum_wav(
         ))
     return midi, {
         "engine": "drum_dsp_v1",
+        "hat_config": {
+            "peak_fraction_scale": hat.peak_fraction_scale,
+            "flux_noise_multiplier": hat.flux_noise_multiplier,
+            "min_high_power_share": hat.min_high_power_share,
+            "min_high_to_mid_ratio": hat.min_high_to_mid_ratio,
+            "min_rms": hat.min_rms,
+        },
         "counts": counts,
         "detected": len(events),
         "ignored_candidates": ignored,
