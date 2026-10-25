@@ -111,6 +111,7 @@ def run_composition_acceptance(
     quality_retries=1, harmonic_key=None, harmonic_chords=None,
     beats_per_chord=4.0, minimum_harmony_score=None,
     timeout=1800.0, temperature=0.9, max_tokens=2000,
+    generation_observer=None,
 ) -> dict:
     """Execute the real installed model only after explicit operator consent.
 
@@ -137,9 +138,41 @@ def run_composition_acceptance(
         t5_dir=validated["t5_dir"], timeout=timeout,
         temperature=temperature, max_tokens=max_tokens,
     )
+    if generation_observer is not None:
+        if not callable(generation_observer):
+            raise TypeError("generation_observer must be callable.")
+        # The benchmark observes actual provider subprocess invocation time.
+        # Prompts and raw exception messages are deliberately not recorded.
+        class _ObservedGenerator:
+            name = model.name
+
+            def generate(self, instruction, *, tempo, seed=None):
+                started_call = time.monotonic()
+                try:
+                    generated = model.generate(instruction, tempo=tempo, seed=seed)
+                except Exception as exc:
+                    generation_observer({
+                        "status": "error", "seed": seed,
+                        "elapsed_seconds": round(time.monotonic() - started_call, 6),
+                        "error_type": type(exc).__name__,
+                        "tracks_returned": None, "notes_returned": None,
+                    })
+                    raise
+                generation_observer({
+                    "status": "returned", "seed": seed,
+                    "elapsed_seconds": round(time.monotonic() - started_call, 6),
+                    "error_type": None,
+                    "tracks_returned": len(generated.instruments),
+                    "notes_returned": sum(len(t.notes) for t in generated.instruments),
+                })
+                return generated
+        generator = _ObservedGenerator()
+    else:
+        generator = model
+
     started = time.monotonic()
     composed, plan, diff = compose_strict_parts(
-        read_midi(validated["source"]), prompt, model,
+        read_midi(validated["source"]), prompt, generator,
         locked_tracks=tuple(locked_tracks),
         program_assignments=program_assignments,
         seed=seed, max_new_tracks=max_new_tracks,
