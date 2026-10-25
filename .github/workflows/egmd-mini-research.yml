@@ -7,9 +7,11 @@ on:
   push:
     branches:
       - feat/benchmark-foundation
+      - feat/drum-audit-20261025
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   egmd-mini:
@@ -18,6 +20,8 @@ jobs:
     timeout-minutes: 45
     env:
       DATA_DIR: /tmp/midivolt-egmd-mini
+      BASELINE_REPORT: /tmp/midivolt-egmd-mini/original-six.zip
+      GH_TOKEN: ${{ github.token }}
       ADT_ROOT: /tmp/MIDIVOLT_ADT_STR
       SOURCE_REVISION: 77dbef225e7029478ebfb916f20c7a00274f0f12
       HF_HUB_DISABLE_TELEMETRY: '1'
@@ -29,6 +33,20 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Retrieve original six-song historical evidence
+        run: |
+          mkdir -p "$DATA_DIR"
+          gh api repos/kevin781130-netizen/MIDIVOLT/actions/artifacts/12581581427/zip > "$BASELINE_REPORT"
+          python -m zipfile -t "$BASELINE_REPORT"
+          python -m midivolt.drum_replay_evidence \
+            --original "$BASELINE_REPORT" \
+            --output "$DATA_DIR/original_replay_readiness.json"
+
+      - name: Verify replay lock and diagnostic tests offline
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_egmd_replay_lock.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_drum_replay_evidence.py' -v
 
       - name: Install lightweight MIDI and remote-ZIP dependencies
         run: |
@@ -68,6 +86,7 @@ jobs:
             --min-drummers 3 \
             --max-duration 35 \
             --max-entry-mb 48 \
+            --baseline-report "$BASELINE_REPORT" \
             --research-only
 
       - name: Upload scores and provenance only (NEVER dataset or model)
@@ -78,6 +97,8 @@ jobs:
           path: |
             /tmp/midivolt-egmd-mini/selection_plan.json
             /tmp/midivolt-egmd-mini/research_metrics.json
+            /tmp/midivolt-egmd-mini/original_replay_readiness.json
+            /tmp/midivolt-egmd-mini/replay_lock_preflight.json
             /tmp/midivolt-egmd-mini/drum_label_replay_evidence.json
             /tmp/midivolt-egmd-mini/research_error.json
           if-no-files-found: warn
