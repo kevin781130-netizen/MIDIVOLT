@@ -110,9 +110,16 @@ def transcribe_adt_str(
             "license_gate": "research_only",
             "checkpoint_local": True,
             "detected": count,
-            "gm_pitch_histogram": histogram,
+            "raw_vendor_pitch_histogram": histogram,
+            "pitch_namespace": "adt_str_vendor_custom_drum_classes",
+            "standard_gm_output": False,
+            "requires_explicit_daw_drum_mapping": True,
             "upstream_stdout_tail": (getattr(result, "stdout", "") or "")[-300:],
-            "warning": "External local ADT_STR; CC BY-SA-4.0 obligations not yet "
-                       "cleared for MIDIVOLT production or redistribution.",
+            "warning": (
+                "External local ADT_STR uses a reduced/custom drum label vocabulary; "
+                "raw numeric note pitches are NOT guaranteed to be General MIDI "
+                "instrument assignments. Apply a verified mapping before DAW playback. "
+                "Code/checkpoint licensing and commercial redistribution remain uncleared."
+            ),
         }
         return raw, diagnostics
