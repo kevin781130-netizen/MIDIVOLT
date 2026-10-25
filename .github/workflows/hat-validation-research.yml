@@ -5,9 +5,6 @@ name: MIDIVOLT E-GMD Validation DSP Hi-hat Study
 # Do NOT download/reupload the official 90GB archive or raw samples.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
