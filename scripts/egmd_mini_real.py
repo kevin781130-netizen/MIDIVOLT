@@ -283,6 +283,16 @@ def run(args) -> int:
         max_long_duration=args.max_duration,
         min_drummers=args.min_drummers, kit=args.kit,
     )
+    replay_lock = None
+    selection_proof = None
+    if args.baseline_report:
+        # Fail before 90-GB remote ZIP requests if metadata-only song identity
+        # has drifted from the original six-song held-out evaluation.
+        from midivolt.egmd_replay_lock import (
+            load_replay_lock, verify_selection_lock,
+        )
+        replay_lock = load_replay_lock(args.baseline_report)
+        selection_proof = verify_selection_lock(replay_lock, selection, csvhash)
     plan = {
         "dataset": "E-GMD v1.0.0",
         "metadata_url": CSV_URL, "metadata_sha256": csvhash,
@@ -315,6 +325,25 @@ def run(args) -> int:
     if len(files) != len(selection):
         raise RuntimeError("Missing pair despite successful preflight.")
     (output / "selection_plan.json").write_text(json.dumps(plan, indent=2) + "\n")
+    if replay_lock:
+        # Hard stop before large model download / inference when ANY original
+        # WAV or reference MIDI byte differs, not after expensive inference.
+        from midivolt.egmd_replay_lock import verify_audio_lock, verify_model_lock
+        file_proof = verify_audio_lock(replay_lock, files)
+        model_proof = verify_model_lock(replay_lock, {
+            "id": HF_ID, "revision": MODEL_REVISION,
+            "variant": VARIANT, "sha256": MODEL_SHA256,
+            "commercial_status": "not_cleared",
+        })
+        (output / "replay_lock_preflight.json").write_text(
+            json.dumps({
+                "selection": selection_proof,
+                "files": file_proof,
+                "model": model_proof,
+                "note": "Provenance identity only; no onset pairing proven until actual replay.",
+            }, indent=2) + "\n",
+            encoding="utf-8",
+        )
     if args.fetch_only:
         data = {"status":"success_fetch_only","pairs":len(files),
                 "wav_and_midi_sha256":[{"song_id":r["source_song_id"],
@@ -337,8 +366,8 @@ def run(args) -> int:
     if args.baseline_report and not args.fetch_only:
         # Compare the newly inferred MIDI-onset hypotheses with the original
         # untouched, hash-identified six-song benchmark. Do not change F1.
-        from midivolt.drum_replay_evidence import build_evidence, load_metrics
-        evidence = build_evidence(load_metrics(args.baseline_report), data)
+        from midivolt.drum_replay_evidence import build_evidence
+        evidence = build_evidence(replay_lock.report, data)
         (output / "drum_label_replay_evidence.json").write_text(
             json.dumps(evidence, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
@@ -362,7 +391,7 @@ def main(argv=None):
     ap.add_argument("--max-entry-mb",type=int,default=28)
     ap.add_argument("--fetch-only",action="store_true")
     ap.add_argument("--baseline-report", type=Path,
-                    help="original six-song research_metrics.json or ZIP; verify matching WAV/MIDI/checkpoint and per-song TP/FP/FN")
+                    help="original two-JSON six-song GitHub artifact ZIP; verify song selection and WAV/MIDI hashes before model inference")
     ap.add_argument("--research-only",action="store_true")
     args = ap.parse_args(argv)
     try:
