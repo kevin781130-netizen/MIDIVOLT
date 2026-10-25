@@ -4,9 +4,6 @@ name: MIDIVOLT Train-only Hat Ranker Unit Gate
 # checkpoints, research model weights, or pretrained neural models.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
