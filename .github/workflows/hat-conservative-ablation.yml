@@ -4,9 +4,6 @@ name: MIDIVOLT Conservative Hi-hat Ablation
 # Explicit one-off commit marker only. No torch, models or full dataset.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
