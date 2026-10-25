@@ -41,10 +41,10 @@ def execute(output: Path) -> dict:
     rows = choose_validation_metadata(
         read_metadata(metadata_path),
         count=PRE_REGISTERED_SAMPLE_COUNT,
-        short_fill_count=8,
-        max_duration_s=35,
+        short_fill_count=9,
+        max_duration_s=90,
         kit_name="Acoustic Kit",
-        seed="midivolt-dual-subband-fresh24-fixed-selection-v1",
+        seed="midivolt-dual-subband-fresh24-metadata-v2",
         exclude_source_song_ids=EXCLUDED_PREVIOUS_SONG_IDS,
     )
     plan = {
@@ -55,7 +55,7 @@ def execute(output: Path) -> dict:
         "metadata_sha256": metadata_sha,
         "excluded_previous_song_ids": sorted(EXCLUDED_PREVIOUS_SONG_IDS),
         "selection_method": "metadata_only_before_loading_audio_or_MIDI",
-        "selection_seed": "midivolt-dual-subband-fresh24-fixed-selection-v1",
+        "selection_seed": "midivolt-dual-subband-fresh24-metadata-v2",
         "selected": [
             {key: row[key] for key in (
                 "id", "drummer", "session", "split", "style", "bpm",
@@ -63,8 +63,10 @@ def execute(output: Path) -> dict:
                 "midi_filename",
             )} for row in rows
         ],
-        "beat_count": 16,
-        "fill_count": 8,
+        "beat_count": 15,
+        "fill_count": 9,
+        "maximum_duration_seconds": 90,
+        "metadata_only_sampling_revision_reason": "Original 35s cutoff left two Beat clips; official metadata-only bin probe showed 15 by 90s",
         "contains_model_outputs": False,
     }
     plan_file = output / "validation_selection_plan.json"
