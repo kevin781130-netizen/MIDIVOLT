@@ -47,7 +47,7 @@ try {
                           "midivolt-tsov", "midivolt-bridge",
                           "midivolt-compose", "midivolt-compose-accept",
                           "midivolt-compose-audit", "midivolt-compose-doctor",
-                          "midivolt-compose-benchmark",
+                          "midivolt-compose-benchmark", "midivolt-compose-verify",
                           "midivolt-beta-gate",
                           "midivolt-plan", "midivolt-transcribe", "midivolt-evaluate")) {
         Invoke-CLI $extra @("--help")
