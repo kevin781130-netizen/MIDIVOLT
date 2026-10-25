@@ -18,3 +18,12 @@ Models are unchanged. No improvement in F1 is claimed without results. ADT_STR c
 ## What is still required for a reliable release decision
 
 A substantially larger dataset with every claimed percussion family, multiple kits and performers, and held-out acoustic microphone recordings. Longer clips and more performers strengthen diagnosis but do not alone prove product readiness.
+
+
+## Verified official CSV selection before model inference
+
+Metadata preflight: https://github.com/kevin781130-netizen/MIDIVOLT/actions/runs/40148307039
+
+The pinned selection contains 6 distinct upstream TEST performances: 4 grooves (21–28 s), 2 fills (shorter), 4 different drummers, 5 primary genres, BPM 60–138, and 110.674 seconds of reference material. This is a fixed metadata-only selection; do not swap tracks based on model F1.
+
+The pilot uses the same Acoustic Kit rendering for every selected performance, so timbre diversity remains limited. Scores on the updated clips are not known until actual inference completes.
