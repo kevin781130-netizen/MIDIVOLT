@@ -3,9 +3,6 @@ name: MIDIVOLT Official TRAIN Ranker and Unseen Validation
 # Opt-in only. Never upload raw E-GMD media, predictions or fitted model.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
