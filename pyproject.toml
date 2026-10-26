@@ -23,6 +23,7 @@ hub = ["huggingface_hub>=0.27,<2"]
 [project.scripts]
 midivolt = "midivolt.cli:main"
 midivolt-prompt = "midivolt.prompt_cli:main"
+midivolt-ai = "midivolt.ai_cli:main"
 midivolt-bridge = "midivolt.bridge_cli:main"
 midivolt-tsov = "midivolt.tsov_cli:main"
 midivolt-review = "midivolt.review_cli:main"
