@@ -4,9 +4,6 @@ name: MIDIVOLT Cut30 Product Prompt-to-MIDI Gate
 # external AI. A synthetic MIDI demo is owned by MIDIVOLT, not MIDI Agent.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/midi-agent-parity-cut30-20261026
 
 permissions:
   contents: read
