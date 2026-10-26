@@ -2,9 +2,6 @@ name: MIDIVOLT Cut29 E-GMD Metadata Feasibility
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/drum-audit-20261025
 
 permissions:
   contents: read
