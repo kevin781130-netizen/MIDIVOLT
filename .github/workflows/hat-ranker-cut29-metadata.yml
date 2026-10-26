@@ -1,0 +1,35 @@
+name: MIDIVOLT Cut29 E-GMD Metadata Feasibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/drum-audit-20261025
+
+permissions:
+  contents: read
+
+jobs:
+  metadata-only:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cut29-metadata-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install metadata parser requirements only
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3"
+      - name: Inspect official CSV and remaining source IDs; no WAV/MIDI
+        run: |
+          python -m scripts.egmd_ranker_cut29_metadata_audit
+      - name: Save metadata feasibility JSON only
+        uses: actions/upload-artifact@v4
+        with:
+          name: cut29-metadata-feasibility
+          path: /tmp/midivolt-cut29-metadata/remaining_split_capacity.json
+          if-no-files-found: error
+          retention-days: 14
