@@ -37,6 +37,26 @@ See [Windows RC packaging and limitations](docs/windows-rc.md).
 The developer RC is **CLI-only**, and real Cubase GUI/model GPU acceptance is
 not claimed by the workflow.
 
+## Text prompt to editable multitrack MIDI (Cut30 product prototype)
+
+An **original, deterministic rules engine** now generates independently
+editable Chords, Melody, Bass and General MIDI Drums tracks from bounded
+English or Chinese musical instructions. It can extend an existing
+constant-tempo 4/4 Standard MIDI without editing the source. This
+command **does not use an LLM**; the provider-based AI generator and
+VST/standalone GUI remain separate work.
+
+```sh
+midivolt-prompt --prompt "Full song, 8 bars in D minor at 110 bpm" --out new-sketch.mid
+midivolt-prompt --prompt "請寫8小節 F#小調 旋律 貝斯 100 BPM" --out melody-bass.mid
+midivolt-prompt --input original.mid --prompt "Extend with 4 bars of sparse melody" --out extended.mid
+```
+
+See [MIDI Agent feature-parity status, what is missing and Cut30
+scope](docs/product/MIDI_AGENT_PARITY_CUT30.md). No third-party product
+source/UI/assets were copied. The separate top-level drum research branch
+is **not** the packaging/product branch and cannot be blindly merged.
+
 ## Install
 
 Python **3.11** is used to intersect the supported versions of music21 9.x and the optional Basic Pitch 0.4.0. Use a virtual environment:
