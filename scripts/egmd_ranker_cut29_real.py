@@ -84,6 +84,7 @@ def run(output: Path) -> dict:
         raise RuntimeError("Original TRAIN fitting assets missing")
 
     fit_manifest = pair_manifest(root, fit_files, split="train")
+    fit_manifest = fit_manifest.rename(root / "private_fit72_manifest.json")
     fit_records, fit_sha = read_train_manifest(fit_manifest)
     if [x["source_song_id"] for x in fit_records] != [x["id"] for x in plan["fit"]]:
         raise RuntimeError("TRAIN source identities drifted before feature extraction")
@@ -144,9 +145,8 @@ def run(output: Path) -> dict:
     )
     if len(test_files) != GROUP_HOLDOUT_SONGS:
         raise RuntimeError("Original TRAIN internal holdout assets missing")
-    holdout_manifest = root / "private_holdout_train_manifest.json"
-    holdout_manifest_data = pair_manifest(root, test_files, split="train")
-    holdout_manifest.write_bytes(holdout_manifest_data.read_bytes())
+    holdout_manifest = pair_manifest(root, test_files, split="train")
+    holdout_manifest = holdout_manifest.rename(root / "private_holdout24_manifest.json")
     test_records, holdout_sha = read_train_manifest(holdout_manifest)
     if [x["source_song_id"] for x in test_records] != [x["id"] for x in plan["holdout"]]:
         raise RuntimeError("TRAIN holdout source identities changed")
