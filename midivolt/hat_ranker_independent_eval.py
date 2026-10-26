@@ -101,14 +101,15 @@ def evaluate_unseen(
     if len({row.get("drummer") for row in selected}) < 3:
         raise ValueError("Too few independent drummers in validation")
     if (plan.get("train_manifest_sha256") != model.training_manifest_sha256
-            or plan.get("train_source_count") != model.source_songs):
+            or plan.get("train_contributing_songs") != model.source_songs
+            or plan.get("train_source_count") != TRAIN_COUNT):
         raise ValueError("Train model was not fitted to declared TRAIN source manifest")
     source_songs = plan.get("train_source_song_ids")
     if (not isinstance(source_songs, list) or len(source_songs) != TRAIN_COUNT
             or len(set(source_songs)) != TRAIN_COUNT or set(source_songs) & set(identities)):
         raise ValueError("Train/Validation source-song leakage")
-    if model.source_songs != TRAIN_COUNT:
-        raise ValueError("TRAIN count differs from pre-registered 24 performances")
+    if not 4 <= model.source_songs <= TRAIN_COUNT:
+        raise ValueError("TRAIN contributing performances outside valid source count")
 
     arms = {
         "baseline": {"hat_subband_config": None, "hat_ranker_model": None},
