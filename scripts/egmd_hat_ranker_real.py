@@ -231,11 +231,14 @@ def execute(folder: Path, original_cut26_plan: Path) -> dict:
         "excluded_previous_val_ids": sorted(PREVIOUS_VAL_IDS),
         "selected": official_rows(val_selection),
         "train_source_song_ids": train_ids, "train_source_count": TRAIN_COUNT,
+        "train_contributing_songs": model.source_songs,
         "train_manifest_sha256": train_sha,
     }
     validated = evaluate_unseen(val_records, validation_plan, model)
     validated["training_summary"] = {
-        "source_songs": TRAIN_COUNT, "candidate_examples": len(examples),
+        "source_songs": TRAIN_COUNT,
+        "source_songs_with_candidates": model.source_songs,
+        "candidate_examples": len(examples),
         "positive_new_hat_examples": model.positive_examples,
         "negative_new_hat_examples": model.negative_examples,
         "training_per_song_counts": training_stats,
