@@ -37,6 +37,18 @@ See [Windows RC packaging and limitations](docs/windows-rc.md).
 The developer RC is **CLI-only**, and real Cubase GUI/model GPU acceptance is
 not claimed by the workflow.
 
+## Real opt-in AI MIDI generation (Cut31 experimental)
+
+After installing this branch, midivolt-ai now accepts a real OpenAI API key or a separately installed local Ollama model. It sends an explicitly authorized prompt, rejects malformed or out-of-range AI note events, and writes separate editable MIDI tracks. No model checkpoints or API keys are bundled. Local mocked-server tests do NOT prove musical quality or actual paid-provider availability.
+
+```powershell
+$env:MIDIVOLT_OPENAI_API_KEY = 'YOUR_OWN_API_KEY'
+midivolt-ai --provider openai --model YOUR_SUPPORTED_MODEL --prompt '8 bars of chords, melody, bass and drums in D minor' --out new-ai.mid --allow-network
+midivolt-ai --provider ollama --model YOUR_INSTALLED_LOCAL_MODEL --prompt '4 bars of melody in A minor' --out local-ai.mid --allow-network
+```
+
+To extend existing MIDI, add --input source.mid --manifest proposal.json and use midivolt-review preview/apply --approve before final publish. Source tracks are hash-protected and left unchanged. See [Cut31 provider guide](docs/product/MIDI_AGENT_CUT31_AI_PROVIDER.md). No VST3/AU/AAX or stand-alone GUI yet.
+
 ## Text prompt to editable multitrack MIDI (Cut30 product prototype)
 
 An **original, deterministic rules engine** now generates independently
