@@ -1,0 +1,55 @@
+name: MIDIVOLT Cut29 Drummer-Disjoint TRAIN Scaling
+
+# One opt-in 96-source original TRAIN experiment; no official Validation
+# or TEST WAV/MIDI and NO fitted weights in uploaded artifacts.
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/drum-audit-20261025]
+
+permissions:
+  contents: read
+
+jobs:
+  group-holdout-scaling:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cut29-train-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      STUDY_DIR: /tmp/midivolt-cut29-train-internal
+      PYTHONHASHSEED: "0"
+    steps:
+      - name: Checkout preregistered research source
+        uses: actions/checkout@v4
+
+      - name: CPU-only Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install only small research DSP and source-reader dependencies
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3" "remotezip>=0.12,<1"
+
+      - name: Validate Train-only drummer split, model and baseline behavior
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_hat_ranker_cut29_group_holdout.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_candidate_ranker.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
+
+      - name: Execute metadata-first 72+24 E-GMD original TRAIN study
+        run: |
+          python -m scripts.egmd_ranker_cut29_real --output "$STUDY_DIR"
+
+      - name: Upload source selection and aggregate metrics ONLY
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cut29-train-only-drummer-heldout-metrics
+          path: |
+            /tmp/midivolt-cut29-train-internal/source_selection_plan.json
+            /tmp/midivolt-cut29-train-internal/train_group_holdout_results.json
+          if-no-files-found: warn
+          retention-days: 14
