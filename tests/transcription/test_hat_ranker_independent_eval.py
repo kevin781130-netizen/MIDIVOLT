@@ -17,7 +17,7 @@ from midivolt.hat_ranker_independent_eval import (
     evaluate_unseen,
 )
 from scripts.egmd_hat_ranker_real import (
-    select_train_metadata, _original_plan_ok,
+    select_train_metadata, verify_cut26_old_plan,
 )
 
 
@@ -206,7 +206,7 @@ class TrainingValidationTests(unittest.TestCase):
             p = Path(t)/"plan.json"
             p.write_text('{"dataset":"E-GMD v1.0.0","selected":[]}')
             with self.assertRaisesRegex(ValueError, "SHA-256"):
-                _original_plan_ok(p)
+                verify_cut26_old_plan(p)
 
 
 if __name__ == "__main__":
