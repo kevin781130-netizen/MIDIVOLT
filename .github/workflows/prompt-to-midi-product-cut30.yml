@@ -1,0 +1,50 @@
+name: MIDIVOLT Cut30 Product Prompt-to-MIDI Gate
+
+# One opt-in product demonstration; no model weights or GitHub billable
+# external AI. A synthetic MIDI demo is owned by MIDIVOLT, not MIDI Agent.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/midi-agent-parity-cut30-20261026
+
+permissions:
+  contents: read
+
+jobs:
+  prompt-to-midi:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cut30-product-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install published Python product deps and tests (no pretrained weights)
+        run: |
+          python -m pip install -e ".[dev]"
+      - name: Test new prompt, SMF, protected extension and prior core
+        run: |
+          python -m pytest -q tests/test_prompt_music.py tests/test_core.py tests/test_models.py
+      - name: Generate and reload an actual four-track Standard MIDI demo
+        run: |
+          mkdir -p /tmp/midivolt-cut30
+          midivolt-prompt --prompt "Create a full song with 8 bars in D minor at 110 bpm" --seed 2026 --out /tmp/midivolt-cut30/new-sketch.mid > /tmp/midivolt-cut30/result.json
+          python - <<'PY'
+          import pretty_midi
+          path='/tmp/midivolt-cut30/new-sketch.mid'
+          song=pretty_midi.PrettyMIDI(path)
+          assert len(song.instruments)==4
+          assert [t.is_drum for t in song.instruments]==[False,False,False,True]
+          assert all(t.notes for t in song.instruments)
+          print('Validated actual, reloadable Type-1 multitrack MIDI with four populated tracks')
+          PY
+      - name: Upload only originally generated sample MIDI and evidence JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-cut30-prompt-demo
+          path: |
+            /tmp/midivolt-cut30/new-sketch.mid
+            /tmp/midivolt-cut30/result.json
+          retention-days: 14
