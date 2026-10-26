@@ -1,0 +1,73 @@
+name: MIDIVOLT Official TRAIN Ranker and Unseen Validation
+
+# Opt-in only. Never upload raw E-GMD media, predictions or fitted model.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/drum-audit-20261025
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  train-and-score:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hat-ranker-real-once]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      STUDY_DIR: /tmp/midivolt-cut28-train-ranker
+      GH_TOKEN: ${{ github.token }}
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout frozen Train/Validation protocol and source
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11 CPU only
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install lightweight open-source DSP packages
+        run: |
+          python -m pip install "numpy>=1.23.5,<2" "scipy>=1.10,<2" \
+            "pretty_midi>=0.2.10,<0.3" "requests>=2.31,<3" "remotezip>=0.12,<1"
+
+      - name: Regression gate — Train split and independent reference matching
+        run: |
+          python -m unittest discover -s tests/transcription -p 'test_hat_candidate_ranker.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_ranker_independent_eval.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_candidate_confidence.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_hat_subband.py' -v
+          python -m unittest discover -s tests/transcription -p 'test_drums.py' -v
+
+      - name: Verify authentic historical Cut26 Validation selection
+        run: |
+          mkdir -p "$STUDY_DIR/prior"
+          gh api repos/kevin781130-netizen/MIDIVOLT/actions/artifacts/12601269711/zip > "$STUDY_DIR/prior/cut26.zip"
+          python -m zipfile -t "$STUDY_DIR/prior/cut26.zip"
+          python -m zipfile -e "$STUDY_DIR/prior/cut26.zip" "$STUDY_DIR/prior"
+          python - <<'PY'
+          from pathlib import Path
+          from scripts.egmd_hat_ranker_real import verify_cut26_old_plan
+          p = Path('/tmp/midivolt-cut28-train-ranker/prior/selection_plan.json')
+          verify_cut26_old_plan(p)
+          print("Previously-scored 60 Validation performances excluded.")
+          PY
+
+      - name: Fit real official TRAIN model and evaluate 12 untouched Validation songs
+        run: |
+          python -m scripts.egmd_hat_ranker_real \
+            --cut26-plan "$STUDY_DIR/prior/selection_plan.json" \
+            --output "$STUDY_DIR/actual"
+      - name: Upload ONLY dataset metadata selection and metrics, no model/media
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midivolt-cut28-train-only-ranker-validation-metrics
+          path: |
+            /tmp/midivolt-cut28-train-ranker/actual/source_selection_plan.json
+            /tmp/midivolt-cut28-train-ranker/actual/train_ranker_validation_results.json
+          if-no-files-found: warn
+          retention-days: 14
