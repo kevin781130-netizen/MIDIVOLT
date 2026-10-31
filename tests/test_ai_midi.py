@@ -135,6 +135,52 @@ def test_non_destructive_existing_midi_requires_separate_review_approval(tmp_pat
     assert len(read_midi(tmp_path/"approved.mid").instruments) == 3
 
 
+def test_ai_extension_rejects_source_mutated_during_provider_call(tmp_path):
+    original = tmp_path / "source.mid"
+    midi_source(original)
+    original_bytes = original.read_bytes()
+    req = argv(tmp_path, input_file=original)
+    observed = []
+    provider = scripted_transport(spy=observed)
+
+    def concurrent_editor(request, timeout):
+        edited = read_midi(original)
+        edited.instruments[0].notes[0].pitch = 71
+        write_midi(edited, original, overwrite=True)
+        return provider(request, timeout)
+
+    with pytest.raises(ValueError, match="Source MIDI changed during AI inference"):
+        execute(req, transport=concurrent_editor)
+    assert len(observed) == 1  # No real provider: fixture HTTP response only.
+    assert original.read_bytes() != original_bytes
+    assert not (tmp_path / "output.mid").exists()
+    assert not (tmp_path / "proposal.json").exists()
+
+
+def test_ai_extension_rejects_source_mutated_while_being_parsed(tmp_path, monkeypatch):
+    import midivolt.ai_cli as ai_cli
+
+    original = tmp_path / "source.mid"
+    midi_source(original)
+    req = argv(tmp_path, input_file=original)
+    read_original = ai_cli.read_midi
+    observed = []
+
+    def editing_read(path):
+        snapshot = read_original(path)
+        edited = read_original(path)
+        edited.instruments[0].notes[0].pitch = 72
+        write_midi(edited, original, overwrite=True)
+        return snapshot
+
+    monkeypatch.setattr(ai_cli, "read_midi", editing_read)
+    with pytest.raises(ValueError, match="Source MIDI changed while it was being read"):
+        execute(req, transport=scripted_transport(spy=observed))
+    assert not observed  # Cancel before a billable AI request.
+    assert not (tmp_path / "output.mid").exists()
+    assert not (tmp_path / "proposal.json").exists()
+
+
 def test_no_user_network_consent_fails_before_transport(tmp_path):
     req = argv(tmp_path)
     req.allow_network = False
