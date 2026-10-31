@@ -8,6 +8,7 @@ Existing MIDI is never modified, and AI proposals need explicit review.
 from __future__ import annotations
 
 import argparse
+from hashlib import file_digest
 import json
 from pathlib import Path
 import sys
@@ -50,6 +51,12 @@ def parser() -> argparse.ArgumentParser:
     return p
 
 
+def _source_digest(path: Path) -> str:
+    """Hash the real input bytes without reading unbounded MIDI into memory."""
+    with path.open("rb") as stream:
+        return file_digest(stream, "sha256").hexdigest()
+
+
 def execute(args: argparse.Namespace, *, transport=None) -> dict:
     # Validate ALL deterministic constraints and destination filenames
     # BEFORE billable network inference.
@@ -74,7 +81,10 @@ def execute(args: argparse.Namespace, *, transport=None) -> dict:
     paths = [p for p in (input_file, target, manifest) if p]
     if len(set(paths)) != len(paths):
         raise ValueError("Source, generated MIDI and review manifest paths must differ")
+    source_digest = _source_digest(input_file) if input_file else None
     source = read_midi(input_file) if input_file else None
+    if input_file and _source_digest(input_file) != source_digest:
+        raise ValueError("Source MIDI changed while it was being read; AI inference cancelled")
     if input_file:
         locked = args.lock if args.lock is not None else list(range(len(source.instruments)))
         if not locked:
@@ -103,6 +113,10 @@ def execute(args: argparse.Namespace, *, transport=None) -> dict:
         timeout=args.timeout, transport=transport,
     )
     generated = generated_to_midi(document, spec, source=source)
+    # A provider call can last minutes. Never publish an extension against a
+    # source whose on-disk bytes changed since we constructed the AI context.
+    if input_file and _source_digest(input_file) != source_digest:
+        raise ValueError("Source MIDI changed during AI inference; candidate not published")
     if source is not None:
         # Reject any spurious modification before persisting a candidate.
         preview = inspect_arrangement(source, generated, locked)
