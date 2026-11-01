@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import sys
 
+from ._candidate_cleanup import capture_published_candidate, discard_candidate_if_unchanged
 from .ai_midi import (
     AIProviderError, request_notes, generated_to_midi, inference_report,
 )
@@ -55,18 +56,6 @@ def _source_digest(path: Path) -> str:
     """Hash the real input bytes without reading unbounded MIDI into memory."""
     with path.open("rb") as stream:
         return file_digest(stream, "sha256").hexdigest()
-
-
-def _discard_unchanged_candidate(path: Path, identity: tuple[int, int, str]) -> None:
-    """Best-effort orphan cleanup; never remove a replaced or modified output."""
-    try:
-        current = path.stat()
-        if ((current.st_dev, current.st_ino) == identity[:2]
-                and _source_digest(path) == identity[2]):
-            path.unlink()
-    except OSError:
-        # Preserve the original publishing error; uncertain files stay on disk.
-        pass
 
 
 def execute(args: argparse.Namespace, *, transport=None) -> dict:
@@ -143,8 +132,7 @@ def execute(args: argparse.Namespace, *, transport=None) -> dict:
     write_midi(generated, target)
     response["candidate_midi"] = str(target)
     if input_file:
-        candidate_stat = target.stat()
-        identity = (candidate_stat.st_dev, candidate_stat.st_ino, _source_digest(target))
+        identity = capture_published_candidate(target)
         try:
             # Close the time gap between the pre-write fingerprint and
             # creating a manifest against the live source bytes.
@@ -155,7 +143,7 @@ def execute(args: argparse.Namespace, *, transport=None) -> dict:
             )
         except Exception:
             if not manifest.exists():
-                _discard_unchanged_candidate(target, identity)
+                discard_candidate_if_unchanged(target, identity)
             raise
         response.update({
             "review_manifest": str(manifest),
