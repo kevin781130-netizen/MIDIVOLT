@@ -6,6 +6,7 @@
 
 - Read and write Standard MIDI Files with **pretty_midi** (MIT).
 - Interpret lead-sheet chord symbols with **music21** (BSD-3-Clause).
+- Accept common flat spellings such as `Bbmaj7`, `Ebm7` and slash basses like `C7/Bb`; these are normalized to music21's `B-` notation.
 - Generate separate chord and bass MIDI tracks without changing the original tracks.
 - Detect a rough musical key and inspect a MIDI arrangement.
 - Optionally transcribe audio to MIDI using **Spotify Basic Pitch** (Apache-2.0).
