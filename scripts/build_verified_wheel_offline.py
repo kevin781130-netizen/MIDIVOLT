@@ -29,7 +29,7 @@ class BuildGateError(ValueError):
 
 
 # Immutable source provenance pinned independently of the mutable snapshot.
-EXPECTED_SOURCE_COMMIT = "f2e4b45a7bbc28805f71918033627e983b714268"
+EXPECTED_SOURCE_COMMIT = "dc96031bed0edc5c2746880ae1cb2997da1d15ef"
 
 
 def check_wheel(wheel: Path, source: Path) -> dict:
@@ -58,6 +58,19 @@ def check_wheel(wheel: Path, source: Path) -> dict:
             raise BuildGateError("Incorrect installed name/version")
         if set(x.strip() for x in installed.get("Requires-Python", "").split(",")) != set(x.strip() for x in meta["requires-python"].split(",")):
             raise BuildGateError("Incorrect Python requirement")
+        # An actual distributable RC must carry original license and all
+        # third-party attributions. PEP 639 metadata is part of the contract.
+        required_licenses = ("LICENSE", "THIRD_PARTY_NOTICES.md")
+        if meta.get("license") != "Apache-2.0" or set(meta.get("license-files", [])) != set(required_licenses):
+            raise BuildGateError("Incorrect license configuration")
+        if installed.get("License-Expression") != "Apache-2.0" or set(installed.get_all("License-File", [])) != set(required_licenses):
+            raise BuildGateError("Missing/incorrect PEP 639 license metadata")
+        for license_name in required_licenses:
+            member = prefix + "licenses/" + license_name
+            if member not in names:
+                raise BuildGateError("Missing packaged license: " + license_name)
+            if z.read(member) != (source / license_name).read_bytes():
+                raise BuildGateError("Incorrect packaged license bytes: " + license_name)
         from configparser import ConfigParser
         cp = ConfigParser(interpolation=None)
         cp.optionxform = str
