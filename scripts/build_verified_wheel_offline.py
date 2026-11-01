@@ -29,7 +29,7 @@ class BuildGateError(ValueError):
 
 
 # Immutable source provenance pinned independently of the mutable snapshot.
-EXPECTED_SOURCE_COMMIT = "4e235224f15a6fca34d94db3ce77274e9b7a6a42"
+EXPECTED_SOURCE_COMMIT = "c65806b6b67ecab6e5fd1a5f2c3f8aefb5e2ddf1"
 
 
 def check_wheel(wheel: Path, source: Path) -> dict:
