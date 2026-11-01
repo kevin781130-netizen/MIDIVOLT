@@ -23,7 +23,8 @@ def transcribe_audio(
         from basic_pitch.inference import predict
     except ImportError as exc:
         raise RuntimeError(
-            'Basic Pitch is optional. Install on Python 3.11 with: pip install -e ".[audio]"'
+            'Basic Pitch 0.4.0 is supported only in the Python 3.11 audio environment. '
+            'Create a Python 3.11 venv, then install with: pip install -e ".[audio]"'
         ) from exc
     _, midi, _ = predict(str(source_path))
     return write_midi(midi, output_path, overwrite=overwrite)
