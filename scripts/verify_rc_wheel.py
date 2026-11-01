@@ -83,6 +83,26 @@ def inspect_wheel(wheel_path: Path, project_path: Path) -> dict:
                 actual_python = metadata.get("Requires-Python", "")
                 if {x.strip() for x in actual_python.split(",")} != {x.strip() for x in expected_python.split(",")}:
                     reject("PYTHON_RUNTIME_MISMATCH")
+                # Keep the independent installer gate aligned with the
+                # builder: Apache-2.0 and complete third-party attribution
+                # must actually be present in the wheel, not just pyproject.
+                required_licenses = ("LICENSE", "THIRD_PARTY_NOTICES.md")
+                if (project.get("license") != "Apache-2.0"
+                        or set(project.get("license-files", [])) != set(required_licenses)):
+                    reject("PROJECT_LICENSE_CONTRACT_MISMATCH")
+                if (metadata.get("License-Expression") != "Apache-2.0"
+                        or set(metadata.get_all("License-File", [])) != set(required_licenses)):
+                    reject("WHEEL_LICENSE_METADATA_MISMATCH")
+                for license_name in required_licenses:
+                    member = root + "licenses/" + license_name
+                    if member not in names:
+                        reject("MISSING_PACKAGED_LICENSE:" + license_name)
+                        continue
+                    original = project_path.resolve().parent / license_name
+                    if not original.is_file() or original.is_symlink():
+                        reject("MISSING_SOURCE_LICENSE:" + license_name)
+                    elif sha256(original.read_bytes()).digest() != sha256(archive.read(member)).digest():
+                        reject("PACKAGED_LICENSE_SOURCE_MISMATCH:" + license_name)
                 wheel_meta = Parser().parsestr(archive.read(root + "WHEEL").decode("utf-8"))
                 if wheel_meta.get("Root-Is-Purelib", "").lower() != "true":
                     reject("NOT_PURE_PYTHON_WHEEL")
