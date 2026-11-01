@@ -101,7 +101,8 @@ def basic_pitch_backend() -> Callable[[Path, float, float, float, float], pretty
         from basic_pitch.inference import Model, predict
     except (ImportError, AttributeError) as exc:
         raise RuntimeError(
-            "Basic Pitch unavailable. Install with: pip install -r requirements-transcribe.txt"
+            "Basic Pitch 0.4.0 is supported only in the Python 3.11 audio environment. "
+            "Create a Python 3.11 venv, then install with: pip install -r requirements-transcribe.txt"
         ) from exc
 
     model = Model(ICASSP_2022_MODEL_PATH)
