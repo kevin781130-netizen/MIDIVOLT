@@ -135,6 +135,66 @@ def test_non_destructive_existing_midi_requires_separate_review_approval(tmp_pat
     assert len(read_midi(tmp_path/"approved.mid").instruments) == 3
 
 
+def test_failed_review_manifest_rolls_back_unmodified_candidate(tmp_path, monkeypatch):
+    import midivolt.ai_cli as ai_cli
+
+    original = tmp_path / "source.mid"
+    midi_source(original)
+    before = original.read_bytes()
+
+    def fail_proposal(*args, **kwargs):
+        raise ValueError("Injected review-manifest persistence failure")
+
+    monkeypatch.setattr(ai_cli, "create_proposal", fail_proposal)
+    with pytest.raises(ValueError, match="review-manifest persistence failure"):
+        execute(argv(tmp_path, input_file=original), transport=scripted_transport())
+    assert original.read_bytes() == before
+    assert not (tmp_path / "output.mid").exists()
+    assert not (tmp_path / "proposal.json").exists()
+
+
+def test_late_source_edit_never_leaves_unreviewed_candidate(tmp_path, monkeypatch):
+    import midivolt.ai_cli as ai_cli
+
+    original = tmp_path / "source.mid"
+    midi_source(original)
+    before = original.read_bytes()
+    publish = ai_cli.write_midi
+
+    def write_and_simulate_concurrent_source_edit(midi, target):
+        publish(midi, target)
+        edited = read_midi(original)
+        edited.instruments[0].notes[0].pitch = 72
+        write_midi(edited, original, overwrite=True)
+
+    monkeypatch.setattr(ai_cli, "write_midi", write_and_simulate_concurrent_source_edit)
+    with pytest.raises(ValueError, match="Source MIDI changed while publishing"):
+        execute(argv(tmp_path, input_file=original), transport=scripted_transport())
+    assert original.read_bytes() != before
+    assert not (tmp_path / "output.mid").exists()
+    assert not (tmp_path / "proposal.json").exists()
+
+
+def test_rollback_preserves_candidate_replaced_by_another_process(tmp_path, monkeypatch):
+    import midivolt.ai_cli as ai_cli
+
+    original = tmp_path / "source.mid"
+    midi_source(original)
+    before = original.read_bytes()
+    replacement = b"other process now owns this destination"
+
+    def another_process_replaces_output(*args, **kwargs):
+        (tmp_path / "output.mid").write_bytes(replacement)
+        raise ValueError("Injected competing candidate replacement")
+
+    monkeypatch.setattr(ai_cli, "create_proposal", another_process_replaces_output)
+    with pytest.raises(ValueError, match="competing candidate replacement"):
+        execute(argv(tmp_path, input_file=original), transport=scripted_transport())
+    assert original.read_bytes() == before
+    assert (tmp_path / "output.mid").read_bytes() == replacement
+    assert not (tmp_path / "proposal.json").exists()
+
+
 def test_ai_extension_rejects_source_mutated_during_provider_call(tmp_path):
     original = tmp_path / "source.mid"
     midi_source(original)
