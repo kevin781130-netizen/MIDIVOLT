@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pretty_midi
-from music21 import harmony, note, stream
 
 
 @dataclass(frozen=True)
@@ -16,15 +15,35 @@ class ChordSpec:
     intervals: tuple[int, ...]
 
 
+def _normalize_chord_symbol(token: str) -> str:
+    """Translate common lead-sheet flat note names to music21's hyphen form.
+
+    music21 uses B- for B-flat in chord roots and slash basses; a b inside
+    a chord suffix (for example C7b9) remains an alteration.
+    """
+    if not token:
+        return token
+    if token[0].upper() in "ABCDEFG" and token[1:2] == "b":
+        token = token[0].upper() + "-" + token[2:]
+    slash = token.rfind("/")
+    if slash >= 0:
+        bass = token[slash + 1:]
+        if len(bass) >= 2 and bass[0].upper() in "ABCDEFG" and bass[1:2] == "b":
+            token = token[:slash + 1] + bass[0].upper() + "-" + bass[2:]
+    return token
+
+
 def parse_chords(progression: str) -> list[ChordSpec]:
     """Parse whitespace/comma-separated lead-sheet symbols, e.g. Fmaj7 Dm7 Gm7 C7."""
+    from music21 import harmony
+
     tokens = progression.replace(",", " ").split()
     if not 1 <= len(tokens) <= 128:
         raise ValueError("Provide between 1 and 128 chord symbols.")
     result: list[ChordSpec] = []
     for token in tokens:
         try:
-            symbol = harmony.ChordSymbol(token)
+            symbol = harmony.ChordSymbol(_normalize_chord_symbol(token))
             pitches = symbol.pitches
             if not pitches or symbol.root() is None or symbol.bass() is None:
                 raise ValueError("Unrecognized chord")
@@ -47,6 +66,8 @@ def estimate_key(midi: pretty_midi.PrettyMIDI) -> str | None:
     ]
     if len(pitched) < 3:
         return None
+    from music21 import note, stream
+
     s = stream.Stream()
     for event in pitched[:10000]:
         item = note.Note(event.pitch)
