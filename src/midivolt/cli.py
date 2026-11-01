@@ -9,9 +9,7 @@ from pathlib import Path
 
 import pretty_midi
 
-from .arrange import add_accompaniment
 from .io import read_midi, write_midi
-from .theory import estimate_key
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "create":
+            from .arrange import add_accompaniment
+
             if not 1 <= args.bpm <= 500:
                 raise ValueError("bpm must be within 1..500.")
             midi = pretty_midi.PrettyMIDI(initial_tempo=args.bpm)
@@ -58,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
             write_midi(arranged, args.out, overwrite=args.overwrite)
             print(f"Saved {args.out}")
         elif args.command == "arrange":
+            from .arrange import add_accompaniment
+
             if Path(args.input).resolve() == Path(args.out).resolve() and not args.overwrite:
                 raise ValueError("Input and output refer to the same file; specify --overwrite.")
             original = read_midi(args.input)
@@ -68,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
             write_midi(arranged, args.out, overwrite=args.overwrite)
             print(f"Saved {args.out}")
         elif args.command == "analyze":
+            from .theory import estimate_key
+
             midi = read_midi(args.input)
             times, tempos = midi.get_tempo_changes()
             report = {
@@ -91,6 +95,11 @@ def main(argv: list[str] | None = None) -> int:
 
             transcribe_audio(args.input, args.out, overwrite=args.overwrite)
             print(f"Saved {args.out}")
+    except ModuleNotFoundError as exc:
+        if exc.name == "music21" or (exc.name or "").startswith("music21."):
+            print("MIDIVOLT error: music21 is required for chord and key analysis; install the declared core dependencies.", file=sys.stderr)
+            return 2
+        raise
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"MIDIVOLT error: {exc}", file=sys.stderr)
         return 2
