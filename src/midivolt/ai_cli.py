@@ -57,6 +57,18 @@ def _source_digest(path: Path) -> str:
         return file_digest(stream, "sha256").hexdigest()
 
 
+def _discard_unchanged_candidate(path: Path, identity: tuple[int, int, str]) -> None:
+    """Best-effort orphan cleanup; never remove a replaced or modified output."""
+    try:
+        current = path.stat()
+        if ((current.st_dev, current.st_ino) == identity[:2]
+                and _source_digest(path) == identity[2]):
+            path.unlink()
+    except OSError:
+        # Preserve the original publishing error; uncertain files stay on disk.
+        pass
+
+
 def execute(args: argparse.Namespace, *, transport=None) -> dict:
     # Validate ALL deterministic constraints and destination filenames
     # BEFORE billable network inference.
@@ -122,16 +134,29 @@ def execute(args: argparse.Namespace, *, transport=None) -> dict:
         preview = inspect_arrangement(source, generated, locked)
         if preview["notes_removed"] != 0 or preview["notes_added"] <= 0:
             raise ValueError("AI must add new MIDI notes without removing original")
-    write_midi(generated, target)
+    # Construct report before publishing so a serialization error cannot
+    # strand a candidate that has no matching review manifest.
     response = inference_report(
         provider=args.provider, model=args.model, spec=spec,
         source=source, generated=generated, raw_document=document,
     )
+    write_midi(generated, target)
     response["candidate_midi"] = str(target)
     if input_file:
-        proposal = create_proposal(
-            input_file, target, manifest, locked_tracks=locked,
-        )
+        candidate_stat = target.stat()
+        identity = (candidate_stat.st_dev, candidate_stat.st_ino, _source_digest(target))
+        try:
+            # Close the time gap between the pre-write fingerprint and
+            # creating a manifest against the live source bytes.
+            if _source_digest(input_file) != source_digest:
+                raise ValueError("Source MIDI changed while publishing AI candidate")
+            proposal = create_proposal(
+                input_file, target, manifest, locked_tracks=locked,
+            )
+        except Exception:
+            if not manifest.exists():
+                _discard_unchanged_candidate(target, identity)
+            raise
         response.update({
             "review_manifest": str(manifest),
             "locked_source_tracks": locked,
