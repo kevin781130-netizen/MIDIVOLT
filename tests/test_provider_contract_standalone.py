@@ -30,6 +30,21 @@ class ProviderContractTests(unittest.TestCase):
         with self.assertRaisesRegex(contract.ProviderProtocolError, "refused"):
             contract.decode_response_text("openai", {"choices": [{"finish_reason": "stop", "message": {"refusal": "no", "content": '{}'}}]})
 
+    def test_ollama_length_stop_rejected_despite_done_true(self):
+        with self.assertRaisesRegex(contract.ProviderProtocolError, "without completion"):
+            contract.decode_response_text("ollama", {
+                "done": True, "done_reason": "length",
+                "message": {"content": '{"tracks":[]}'},
+            })
+
+    def test_ollama_explicit_stop_reason_accepted(self):
+        self.assertEqual(
+            contract.decode_response_text("ollama", {
+                "done": True, "done_reason": "stop",
+                "message": {"content": '{"tracks":[]}'},
+            }), '{"tracks":[]}',
+        )
+
     def test_ollama_missing_done_rejected(self):
         with self.assertRaisesRegex(contract.ProviderProtocolError, "not complete"):
             contract.decode_response_text("ollama", {"message": {"content": '{}'}})
