@@ -50,6 +50,8 @@ def inspect(root: Path) -> dict:
         errors.append("INVALID_PROJECT_VERSION")
     if project.get("requires-python") != ">=3.11,<3.12":
         errors.append("RUNTIME_CONTRACT_MISMATCH")
+    if project.get("license") != "Apache-2.0" or set(project.get("license-files", [])) != {"LICENSE", "THIRD_PARTY_NOTICES.md"}:
+        errors.append("LICENSE_SOURCE_METADATA_MISMATCH")
     if manifest.get("build-system", {}).get("build-backend") != "setuptools.build_meta":
         errors.append("BUILD_BACKEND_MISMATCH")
     if "wheel" not in manifest.get("build-system", {}).get("requires", []):
