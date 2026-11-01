@@ -141,6 +141,76 @@ def test_no_in_place_or_reuse_of_manifest(tmp_path):
         apply_proposal(man, can, approved=True)
 
 
+def test_apply_rejects_candidate_swap_after_manifest_validation(tmp_path, monkeypatch):
+    import midivolt.review_engine as engine
+
+    src = source_midi(tmp_path)
+    can = candidate_with_new_tracks(tmp_path, src)
+    manifest = tmp_path / "plan.json"
+    create_proposal(src, can, manifest, locked_tracks=[0])
+    original_check = engine.check_proposal
+
+    def swap_after_check(path):
+        result = original_check(path)
+        candidate = read_midi(can)
+        candidate.instruments[-1].notes[0].pitch = 50
+        write_midi(candidate, can, overwrite=True)
+        return result
+
+    monkeypatch.setattr(engine, "check_proposal", swap_after_check)
+    out = tmp_path / "approved.mid"
+    with pytest.raises(ValueError, match="Candidate MIDI changed during approval"):
+        apply_proposal(manifest, out, approved=True)
+    assert not out.exists()
+
+
+def test_apply_rejects_source_swap_after_manifest_validation(tmp_path, monkeypatch):
+    import midivolt.review_engine as engine
+
+    src = source_midi(tmp_path)
+    can = candidate_with_new_tracks(tmp_path, src)
+    manifest = tmp_path / "plan.json"
+    create_proposal(src, can, manifest, locked_tracks=[0])
+    original_check = engine.check_proposal
+
+    def swap_after_check(path):
+        result = original_check(path)
+        source = read_midi(src)
+        source.instruments[0].notes[0].pitch = 77
+        write_midi(source, src, overwrite=True)
+        return result
+
+    monkeypatch.setattr(engine, "check_proposal", swap_after_check)
+    out = tmp_path / "approved.mid"
+    with pytest.raises(ValueError, match="Source MIDI changed during approval"):
+        apply_proposal(manifest, out, approved=True)
+    assert not out.exists()
+
+
+def test_apply_publishes_frozen_candidate_even_if_disk_changes_after_capture(tmp_path, monkeypatch):
+    import midivolt.review_engine as engine
+
+    src = source_midi(tmp_path)
+    can = candidate_with_new_tracks(tmp_path, src)
+    manifest = tmp_path / "plan.json"
+    create_proposal(src, can, manifest, locked_tracks=[0])
+    original_note = read_midi(can).instruments[-1].notes[0].pitch
+    original_snapshots = engine.read_approved_snapshots
+
+    def mutate_after_freeze(*args):
+        frozen = original_snapshots(*args)
+        candidate = read_midi(can)
+        candidate.instruments[-1].notes[0].pitch = 53
+        write_midi(candidate, can, overwrite=True)
+        return frozen
+
+    monkeypatch.setattr(engine, "read_approved_snapshots", mutate_after_freeze)
+    result = apply_proposal(manifest, tmp_path / "approved.mid", approved=True)
+    assert result["approved"]
+    assert read_midi(result["output"]).instruments[-1].notes[0].pitch == original_note
+    assert read_midi(can).instruments[-1].notes[0].pitch == 53
+
+
 def test_cli_propose_preview_apply(tmp_path, capsys):
     src = source_midi(tmp_path)
     can = candidate_with_new_tracks(tmp_path, src)
