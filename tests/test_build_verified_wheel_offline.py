@@ -35,11 +35,13 @@ class WheelBuildTests(unittest.TestCase):
                      "midivolt-env", "midivolt-accept", "midivolt-cubase",
                      "midivolt-transcribe", "midivolt-evaluate"]
         scripts = list(zip(cli_names, cli_modules))
-        files["pyproject.toml"] = ('[build-system]\nrequires=["setuptools>=68","wheel"]\n'
+        files["pyproject.toml"] = ('[build-system]\nrequires=["setuptools>=77","wheel"]\n'
                                     'build-backend="setuptools.build_meta"\n'
                                     '[project]\nname="midivolt"\nversion="0.1.0rc1"\n'
                                     'description="fixture"\nreadme="README.md"\n'
                                     'requires-python=">=3.11,<3.12"\n'
+                                    'license="Apache-2.0"\n'
+                                    'license-files=["LICENSE","THIRD_PARTY_NOTICES.md"]\n'
                                     '[project.scripts]\n' +
                                     ''.join(f'{name}="midivolt.{mod}:main"\n' for name,mod in scripts) +
                                     '[tool.setuptools.packages.find]\nwhere=["src"]\n')
@@ -87,6 +89,37 @@ class WheelBuildTests(unittest.TestCase):
         self.assertEqual(self.result["sha256"],sha256(path.read_bytes()).hexdigest())
         with ZipFile(path) as z:
             self.assertIn("midivolt/extra21.py",z.namelist())
+            self.assertIn("midivolt-0.1.0rc1.dist-info/licenses/THIRD_PARTY_NOTICES.md", z.namelist())
+            self.assertEqual(z.read("midivolt-0.1.0rc1.dist-info/licenses/LICENSE"), self.files["LICENSE"].encode())
+            self.assertEqual(z.read("midivolt-0.1.0rc1.dist-info/licenses/THIRD_PARTY_NOTICES.md"), self.files["THIRD_PARTY_NOTICES.md"].encode())
+
+    def test_rejects_missing_third_party_notices_in_wheel(self):
+        with tempfile.TemporaryDirectory() as d:
+            tree = Path(d)
+            for name, contents in self.files.items():
+                path = tree / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(contents)
+            with ZipFile(self.result["wheel"]) as package:
+                members = {name: package.read(name) for name in package.namelist()}
+            members.pop("midivolt-0.1.0rc1.dist-info/licenses/THIRD_PARTY_NOTICES.md")
+            broken = tree / "missing-notices.whl"
+            with ZipFile(broken, "w") as package:
+                for name, content in members.items():
+                    package.writestr(name, content)
+            with self.assertRaisesRegex(builder.BuildGateError, "Missing packaged license"):
+                builder.check_wheel(broken, tree)
+
+    def test_rejects_license_source_mismatch(self):
+        with tempfile.TemporaryDirectory() as d:
+            tree = Path(d)
+            for name, contents in self.files.items():
+                path = tree / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(contents)
+            (tree / "THIRD_PARTY_NOTICES.md").write_text("Replaced attribution")
+            with self.assertRaisesRegex(builder.BuildGateError, "Incorrect packaged license bytes"):
+                builder.check_wheel(Path(self.result["wheel"]), tree)
 
     def test_no_python_311_defaults_to_block(self):
         if sys.version_info[:2] == (3,11): self.skipTest("requires unsupported runtime")
