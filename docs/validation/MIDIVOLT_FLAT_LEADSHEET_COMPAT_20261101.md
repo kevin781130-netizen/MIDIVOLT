@@ -45,7 +45,7 @@ PYTHONPATH=src python3 -m pytest -q tests/test_chord_symbol_normalization.py \
   classes and chord intervals): **SKIPPED**, because music21 is not installed.
 
 JUnit SHA-256:
-`$(python3 -c 'import hashlib;print(hashlib.sha256(open("/mnt/data/MIDIVOLT_FLAT_NOTATION_20261101.junit.xml","rb").read()).hexdigest())')`
+`2f183e860e964904cb6e6cbedd4004c12e45857a752b04888ea1f32f4970ebc0`
 
 ## Python/runtime blocker, verified
 
