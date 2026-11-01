@@ -22,6 +22,8 @@ def decode_response_text(provider: str, response: dict) -> str:
         else:
             if response.get("done") is not True:
                 raise ProviderProtocolError("Local AI response was not complete")
+            if response.get("done_reason", "stop") != "stop":
+                raise ProviderProtocolError("Local AI response stopped without completion")
             content = response["message"]["content"]
         if not isinstance(content, str) or not content.strip():
             raise ProviderProtocolError("AI provider returned no text content")
