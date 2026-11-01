@@ -2,38 +2,38 @@
   "format": "midivolt-offline-source-snapshot-v1",
   "date": "2026-11-01",
   "repo": "kevin781130-netizen/MIDIVOLT",
-  "source_commit": "dc96031bed0edc5c2746880ae1cb2997da1d15ef",
+  "source_commit": "a1d0acf4f30547e1e6fa9e02b6a29904ad080e28",
   "source_blob_count": 40,
   "package_module_count": 36,
   "chunks": [
     {
       "path": "source_transport/part-00.json",
-      "git_blob_sha": "2541de770e87e0a187dfe4150220b644c4078acb",
+      "git_blob_sha": "5b2bef7b4d3f16cd50579e0a2a2f6423c2d9bcb5",
       "files": 7
     },
     {
       "path": "source_transport/part-01.json",
-      "git_blob_sha": "12717e8f34dd8ec67b16d4de203ffa0ccb299ea5",
+      "git_blob_sha": "ea8ba73139d606eda1558867c00537b4218a84c8",
       "files": 7
     },
     {
       "path": "source_transport/part-02.json",
-      "git_blob_sha": "ff6b767fb6794ea2c2daf938000655f0ea7087c7",
+      "git_blob_sha": "411be2442216e043ab2abc3c7e3f933846c26dda",
       "files": 7
     },
     {
       "path": "source_transport/part-03.json",
-      "git_blob_sha": "4792e3c9a232fe7d208eef74fb3e503a739184d2",
+      "git_blob_sha": "009f42bb8894dffc02169e575f90090bc5382d7b",
       "files": 7
     },
     {
       "path": "source_transport/part-04.json",
-      "git_blob_sha": "da62ce0b8ac740bca5048be6a78dcec134e428cf",
+      "git_blob_sha": "db7175461951d29a3a06a6c31311911f8302124e",
       "files": 7
     },
     {
       "path": "source_transport/part-05.json",
-      "git_blob_sha": "55132cad0531a47e679c1348c7bcb7707fabedb5",
+      "git_blob_sha": "da9384ca7ad278c3d892f4dadeed771d28e2627d",
       "files": 5
     }
   ],
@@ -115,7 +115,7 @@
     },
     {
       "path": "src/midivolt/cli.py",
-      "git_blob_sha": "7aa2ef6d58609aae0074315d3ea5ce007f837a3c",
+      "git_blob_sha": "f41cc6255518c6a306cf0753989649c6eab3ac30",
       "chunk": 1
     },
     {
