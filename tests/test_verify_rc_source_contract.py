@@ -47,6 +47,10 @@ class SourceContractTests(unittest.TestCase):
         self.write("src/midivolt/cli2.py", "def wrong():\n    pass\n")
         self.assertIn("MISSING_ENTRYPOINT_FUNCTION:midivolt-review", mod.inspect(self.root)["errors"])
 
+    def test_empty_entrypoint_module_is_rejected(self):
+        self.write("src/midivolt/cli2.py", "")
+        self.assertIn("EMPTY_ENTRYPOINT_MODULE:src/midivolt/cli2.py", mod.inspect(self.root)["errors"])
+
     def test_python_support_policy_mismatch_is_rejected(self):
         p = self.root / "pyproject.toml"
         p.write_text(p.read_text().replace(">=3.11,<3.12", ">=3.13"))
