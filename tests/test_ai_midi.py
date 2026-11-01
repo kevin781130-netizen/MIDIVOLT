@@ -241,6 +241,19 @@ def test_ai_extension_rejects_source_mutated_while_being_parsed(tmp_path, monkey
     assert not (tmp_path / "proposal.json").exists()
 
 
+def test_ollama_done_true_but_length_stop_never_publishes_midi(tmp_path):
+    req = argv(tmp_path)
+    def length_stopped(request, timeout):
+        return FakeResponse({
+            "done": True, "done_reason": "length",
+            "message": {"content": json.dumps(response_docs())},
+        })
+    with pytest.raises(AIProviderError, match="without completion"):
+        execute(req, transport=length_stopped)
+    assert not (tmp_path / "output.mid").exists()
+    assert not (tmp_path / "proposal.json").exists()
+
+
 def test_ai_cli_rejects_ollama_missing_terminal_flag_before_any_midi_publish(tmp_path):
     req = argv(tmp_path)
     def incomplete(request, timeout):
