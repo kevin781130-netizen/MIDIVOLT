@@ -13,6 +13,7 @@ from hashlib import sha256
 from io import StringIO
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import subprocess
 import sys
@@ -25,6 +26,10 @@ from restore_source_snapshot import SnapshotError, load_snapshot
 
 class BuildGateError(ValueError):
     pass
+
+
+# Immutable source provenance pinned independently of the mutable snapshot.
+EXPECTED_SOURCE_COMMIT = "f2e4b45a7bbc28805f71918033627e983b714268"
 
 
 def check_wheel(wheel: Path, source: Path) -> dict:
@@ -87,18 +92,24 @@ def check_wheel(wheel: Path, source: Path) -> dict:
     return {"source_modules": len(sources), "cli_entries": len(scripts), "zip_files": len(names)}
 
 
-def build_verified(root: Path, output_dir: Path, *, diagnostic: bool = False) -> dict:
+def build_verified(root: Path, output_dir: Path, *, diagnostic: bool = False,
+                   expected_source_commit: str = EXPECTED_SOURCE_COMMIT) -> dict:
     """Validate before writing, then build+check in an isolated temporary dir."""
     result = {"status": "BLOCKED", "supported_python": sys.version_info[:2] == (3, 11),
               "python": sys.version.split()[0], "built": False, "errors": []}
     if not result["supported_python"] and not diagnostic:
         result["errors"].append("PYTHON_3_11_REQUIRED")
         return result
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_source_commit):
+        result["errors"].append("INVALID_EXPECTED_SOURCE_COMMIT")
+        return result
     if not output_dir.is_dir() or output_dir.is_symlink():
         result["errors"].append("OUTPUT_DIRECTORY_REQUIRED")
         return result
     try:
         manifest, sourcefiles = load_snapshot(root)
+        if manifest.get("source_commit") != expected_source_commit:
+            raise BuildGateError("SOURCE_COMMIT_MISMATCH")
         with tempfile.TemporaryDirectory(prefix="midivolt-rebuilt-") as tmp:
             src = Path(tmp) / "srcdir"
             src.mkdir()
@@ -142,10 +153,13 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--snapshot-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-source-commit", default=EXPECTED_SOURCE_COMMIT,
+                        help="immutable 40-hex source commit used to create the snapshot")
     parser.add_argument("--diagnostic-unsupported-python", action="store_true")
     args = parser.parse_args(argv)
     outcome = build_verified(args.snapshot_root, args.output_dir,
-                             diagnostic=args.diagnostic_unsupported_python)
+                             diagnostic=args.diagnostic_unsupported_python,
+                             expected_source_commit=args.expected_source_commit)
     print(json.dumps(outcome, sort_keys=True))
     return 0 if not outcome["errors"] else 2
 
