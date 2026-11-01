@@ -72,21 +72,35 @@ is **not** the packaging/product branch and cannot be blindly merged.
 
 ## Install
 
-Python **3.11** is used to intersect the supported versions of music21 9.x and the optional Basic Pitch 0.4.0. Use a virtual environment:
+The **core MIDI product** supports CPython **3.11–3.13**. Its chord/key engine uses
+`music21>=9.7.1,<10`; music21 9.7.1 added Python 3.13 compatibility and
+declares NumPy 1.26.4 or newer without an upper bound. Python 3.14 is not
+claimed by this MIDIVOLT release yet.
+
+Core install on Windows (Python 3.13 example):
 
 ```powershell
-py -3.11 -m venv .venv
+py -3.13 -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 pytest -q
 ```
 
-Linux/macOS: `python3.11 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.
+Linux/macOS: `python3.13 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.
+Python 3.11 and 3.12 are also supported for core MIDI features.
 
-Optional audio module (heavier dependencies, not part of CI):
+**Audio-to-MIDI via Spotify Basic Pitch is a separate compatibility lane.**
+Basic Pitch 0.4.0 currently declares Python support through 3.11 and its
+TensorFlow dependency is capped below 2.15.1. MIDIVOLT therefore enables
+Basic Pitch only when installing the `audio` extra on Python 3.11. On
+Python 3.12–3.13, the extra deliberately skips Basic Pitch; core MIDI,
+chord/key analysis, and the NumPy 2-compatible drum DSP dependencies remain
+available. Use Python 3.11 for Basic Pitch audio transcription:
 
 ```powershell
-python -m pip install -e ".[audio]"
+py -3.11 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[audio,dev]"
 ```
 
 ## External workstations: Sawdust and tsov
