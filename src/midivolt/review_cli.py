@@ -73,6 +73,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(json.dumps(output, ensure_ascii=False, indent=2))
         return 0
+    except ModuleNotFoundError as exc:
+        if exc.name == "music21" or (exc.name or "").startswith("music21."):
+            print("MIDIVOLT review error: music21 is required for local chord generation; install the declared core dependencies.", file=sys.stderr)
+            return 2
+        raise
     except (OSError, ValueError, PermissionError, KeyError,
             TypeError, IndexError) as exc:
         print(f"MIDIVOLT review error: {exc}", file=sys.stderr)
