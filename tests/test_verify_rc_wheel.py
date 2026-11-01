@@ -23,6 +23,8 @@ class WheelVerifierTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.root = Path(cls.tmp.name)
+        (cls.root / "LICENSE").write_text("Apache-2.0 fixture license.\\n")
+        (cls.root / "THIRD_PARTY_NOTICES.md").write_text("Fixture attributions.\\n")
         cls.project = cls.root / "pyproject.toml"
         target_dir = cls.root / "src/midivolt"
         target_dir.mkdir(parents=True)
@@ -34,9 +36,9 @@ class WheelVerifierTests(unittest.TestCase):
         for x in programs:
             (target_dir / (x + ".py")).write_text("def main(argv=None):\n    return 0\n")
             entrypoints.append(f'midivolt-{x} = "midivolt.{x}:main"')
-        cls.project.write_text('[build-system]\nrequires = ["setuptools>=68", "wheel"]\nbuild-backend = "setuptools.build_meta"\n'
+        cls.project.write_text('[build-system]\nrequires = ["setuptools>=77", "wheel"]\nbuild-backend = "setuptools.build_meta"\n'
                                '[project]\nname = "midivolt"\nversion = "0.1.0rc1"\nrequires-python = ">=3.11,<3.12"\n'
-                               'description = "fixture"\nreadme = "README.md"\n[project.scripts]\n' + '\n'.join(entrypoints) + '\n'
+                               'description = "fixture"\nreadme = "README.md"\nlicense = "Apache-2.0"\nlicense-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]\n[project.scripts]\n' + '\n'.join(entrypoints) + '\n'
                                '[tool.setuptools.packages.find]\nwhere = ["src"]\n')
         result = subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", "--no-build-isolation", "--ignore-requires-python", "-w", str(cls.root / "dist"), str(cls.root)], capture_output=True, text=True, check=False)
         if result.returncode:
@@ -68,6 +70,23 @@ class WheelVerifierTests(unittest.TestCase):
         output = self.check()
         self.assertEqual(output["status"], "PASS_WHEEL_INTEGRITY_NOT_INSTALLATION", output["errors"])
         self.assertFalse(output["python_runtime_certified"])
+
+    def test_packaged_attributions_are_in_real_wheel(self):
+        with ZipFile(self.wheel) as archive:
+            names = archive.namelist()
+            expected = self.dist + "licenses/THIRD_PARTY_NOTICES.md"
+            self.assertIn(expected, names)
+            self.assertEqual(archive.read(expected), (self.root / "THIRD_PARTY_NOTICES.md").read_bytes())
+
+    def test_missing_attributions_are_rejected(self):
+        member = self.dist + "licenses/THIRD_PARTY_NOTICES.md"
+        result = self.check(self.mutate(deletes=[member]))
+        self.assertIn("MISSING_PACKAGED_LICENSE:THIRD_PARTY_NOTICES.md", result["errors"])
+
+    def test_modified_attributions_are_rejected(self):
+        member = self.dist + "licenses/THIRD_PARTY_NOTICES.md"
+        result = self.check(self.mutate(changes={member: b"edited unverified content"}))
+        self.assertIn("PACKAGED_LICENSE_SOURCE_MISMATCH:THIRD_PARTY_NOTICES.md", result["errors"])
 
     def test_real_fixture_wheel_installs_without_network(self):
         # A genuine pip install against a disposable fixture, NOT MIDIVOLT code.
