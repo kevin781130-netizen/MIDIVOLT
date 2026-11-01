@@ -241,6 +241,27 @@ def test_ai_extension_rejects_source_mutated_while_being_parsed(tmp_path, monkey
     assert not (tmp_path / "proposal.json").exists()
 
 
+def test_ai_cli_rejects_ollama_missing_terminal_flag_before_any_midi_publish(tmp_path):
+    req = argv(tmp_path)
+    def incomplete(request, timeout):
+        return FakeResponse({"message": {"content": json.dumps(response_docs())}})
+    with pytest.raises(AIProviderError, match="not complete"):
+        execute(req, transport=incomplete)
+    assert not (tmp_path / "output.mid").exists()
+    assert not (tmp_path / "proposal.json").exists()
+
+
+def test_cloud_ai_rejects_missing_finish_reason_even_with_valid_note_json(monkeypatch):
+    monkeypatch.setenv("MIDIVOLT_OPENAI_API_KEY", "fixture-key")
+    spec = parse_prompt("melody and bass in D minor", bars=2, bpm=100)
+    def incomplete(request, timeout):
+        return FakeResponse({"choices": [{"message": {
+            "content": json.dumps(response_docs())
+        }}]})
+    with pytest.raises(AIProviderError, match="incomplete"):
+        request_notes("openai", "test-model", spec, allow_network=True, transport=incomplete)
+
+
 def test_no_user_network_consent_fails_before_transport(tmp_path):
     req = argv(tmp_path)
     req.allow_network = False
