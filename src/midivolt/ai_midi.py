@@ -21,6 +21,7 @@ import urllib.request
 import pretty_midi
 
 from .prompt_music import PromptSpec, PARTS
+from ._provider_contract import ProviderProtocolError, decode_response_text
 
 SCHEMA = "midivolt.ai_midi.v1"
 MAX_RESPONSE_BYTES = 256_000
@@ -145,24 +146,11 @@ def model_instructions(spec: PromptSpec, source: pretty_midi.PrettyMIDI | None =
 
 
 def _decode_response(provider: str, response: dict) -> str:
+    """Require a terminal provider response before attempting MIDI JSON parsing."""
     try:
-        if provider == "openai":
-            choice = response["choices"][0]
-            if choice.get("finish_reason") not in (None, "stop"):
-                raise AIProviderError("AI provider response was incomplete or filtered")
-            msg = choice["message"]
-            if msg.get("refusal"):
-                raise AIProviderError("AI provider refused this generation")
-            content = msg["content"]
-        else:
-            if response.get("done") is False:
-                raise AIProviderError("Local AI response was not complete")
-            content = response["message"]["content"]
-        if not isinstance(content, str) or not content.strip():
-            raise AIProviderError("AI provider returned no text content")
-        return content
-    except (KeyError, TypeError, IndexError) as exc:
-        raise AIProviderError("AI provider response is missing the expected message") from exc
+        return decode_response_text(provider, response)
+    except ProviderProtocolError as exc:
+        raise AIProviderError(str(exc)) from exc
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
