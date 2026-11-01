@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 from hashlib import sha256
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import tempfile
 
 import pretty_midi
 
+from ._approval_snapshot import read_approved_snapshots
 from .io import read_midi, write_midi
 
 SCHEMA_VERSION = 1
@@ -212,5 +214,15 @@ def apply_proposal(
     # Never overwrite an existing project, and revalidate immediately prior to publish.
     if dest.exists():
         raise FileExistsError(f"Output already exists: {dest}")
-    write_midi(read_midi(data["candidate"]), dest)
+    # check_proposal validates disk files, but they can change before a
+    # second read. Freeze the exact approved bytes and serialize ONLY those.
+    source_bytes, candidate_bytes = read_approved_snapshots(
+        Path(data["source"]), Path(data["candidate"]),
+        data["source_sha256"], data["candidate_sha256"],
+    )
+    reviewed_source = pretty_midi.PrettyMIDI(BytesIO(source_bytes))
+    reviewed_candidate = pretty_midi.PrettyMIDI(BytesIO(candidate_bytes))
+    if inspect_arrangement(reviewed_source, reviewed_candidate, data["locked_tracks"]) != report:
+        raise ValueError("Approved MIDI snapshot differs from the reviewed proposal.")
+    write_midi(reviewed_candidate, dest)
     return {**report, "output": str(dest), "approved": True}
