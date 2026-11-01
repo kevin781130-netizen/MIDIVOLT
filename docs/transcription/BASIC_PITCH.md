@@ -4,9 +4,9 @@ Status: working *pitched-stem baseline*, not a benchmark winner or commercial cl
 
 This feature converts each **already-isolated** WAV to a separate MIDI file and writes one **multi-instrument MIDI file** with distinct tracks. It does not separate a mixed recording into instruments, and it does not identify strings/woodwinds inside an "Other" stem.
 
-## Installation (recommended Python 3.11)
+## Installation (Python 3.11 only for Basic Pitch 0.4.0)
 
-Basic Pitch documents Windows, Linux and macOS support; verify your Python/runtime combination before installing production packages.
+MIDIVOLT core MIDI and music21 chord/key features also run on Python 3.12–3.13, but Spotify Basic Pitch 0.4.0 declares support only through Python 3.11 and its TensorFlow dependency is capped below 2.15.1. Use a separate Python 3.11 virtual environment for this optional audio-to-MIDI feature. Verify the platform-specific inference backend before installing production packages.
 
 Windows PowerShell:
 
