@@ -15,6 +15,9 @@ sys.path.insert(0, str(SCRIPTS))
 import build_verified_wheel_offline as builder
 
 
+TEST_SOURCE_COMMIT = "a" * 40
+
+
 class WheelBuildTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -50,7 +53,7 @@ class WheelBuildTests(unittest.TestCase):
         chunks=[];inventory=[]
         for i in range(6):
             selected=sorted(files)[7*i:7*(i+1)]
-            batch={"source_tree":"test-source-commit", "files":[]}
+            batch={"source_tree":TEST_SOURCE_COMMIT, "files":[]}
             for name in selected:
                 content=files[name]
                 blob=builder.load_snapshot.__globals__["git_blob_sha"](content.encode())
@@ -62,13 +65,14 @@ class WheelBuildTests(unittest.TestCase):
                            "git_blob_sha":builder.load_snapshot.__globals__["git_blob_sha"](p.read_bytes()),
                            "files":len(selected)})
         cls.manifest={"format":"midivolt-offline-source-snapshot-v1",
-                      "source_commit":"test-source-commit","source_blob_count":40,
+                      "source_commit":TEST_SOURCE_COMMIT,"source_blob_count":40,
                       "package_module_count":36,"chunks":chunks,"files":inventory}
         cls.manifest_path=cls.chunks/"MANIFEST.json"
         cls.manifest_path.write_text(json.dumps(cls.manifest),encoding="utf-8")
         cls.output=cls.root/"dist"
         cls.output.mkdir()
-        cls.result=builder.build_verified(cls.root,cls.output,diagnostic=True)
+        cls.result=builder.build_verified(cls.root,cls.output,diagnostic=True,
+                                            expected_source_commit=TEST_SOURCE_COMMIT)
 
     @classmethod
     def tearDownClass(cls):
@@ -91,7 +95,8 @@ class WheelBuildTests(unittest.TestCase):
         self.assertFalse(d["built"])
 
     def test_refuses_overwriting_previous_wheel(self):
-        r=builder.build_verified(self.root,self.output,diagnostic=True)
+        r=builder.build_verified(self.root,self.output,diagnostic=True,
+                                            expected_source_commit=TEST_SOURCE_COMMIT)
         self.assertTrue(any("OUTPUT_EXISTS_REFUSE_OVERWRITE" in e for e in r["errors"]),r)
 
     def test_rejects_invalid_snapshot_chunk(self):
@@ -99,12 +104,14 @@ class WheelBuildTests(unittest.TestCase):
         before=p.read_bytes()
         try:
             p.write_bytes(before+b"\n")
-            r=builder.build_verified(self.root,self.output,diagnostic=True)
+            r=builder.build_verified(self.root,self.output,diagnostic=True,
+                                            expected_source_commit=TEST_SOURCE_COMMIT)
             self.assertTrue(any("SHA mismatch in source chunk" in e for e in r["errors"]),r)
         finally: p.write_bytes(before)
 
     def test_rejects_absent_output_directory(self):
-        r=builder.build_verified(self.root,self.root/"absent",diagnostic=True)
+        r=builder.build_verified(self.root,self.root/"absent",diagnostic=True,
+                                            expected_source_commit=TEST_SOURCE_COMMIT)
         self.assertEqual(r["errors"],["OUTPUT_DIRECTORY_REQUIRED"])
 
     def test_record_catches_source_modification(self):
@@ -131,6 +138,22 @@ class WheelBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(builder.BuildGateError,"Missing or modified source"):
                 builder.check_wheel(invalid,src)
 
+    def test_source_commit_substitution_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)
+            result = builder.build_verified(self.root, output, diagnostic=True,
+                                            expected_source_commit="b" * 40)
+            self.assertIn("SOURCE_COMMIT_MISMATCH", result["errors"])
+            self.assertFalse(result["built"])
+            self.assertFalse(list(output.glob("*.whl")))
+
+    def test_malformed_expected_commit_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = builder.build_verified(self.root, Path(temp), diagnostic=True,
+                                            expected_source_commit="bad")
+            self.assertEqual(result["errors"], ["INVALID_EXPECTED_SOURCE_COMMIT"])
+            self.assertFalse(result["built"])
+
     def test_snapshot_verify_refuses_untrusted_content(self):
         m=self.chunks/"MANIFEST.json"
         original=m.read_bytes()
@@ -138,7 +161,8 @@ class WheelBuildTests(unittest.TestCase):
             malformed=json.loads(original)
             malformed["files"][1]["git_blob_sha"]="0"*40
             m.write_text(json.dumps(malformed))
-            r=builder.build_verified(self.root,self.output,diagnostic=True)
+            r=builder.build_verified(self.root,self.output,diagnostic=True,
+                                            expected_source_commit=TEST_SOURCE_COMMIT)
             self.assertTrue(any("Source manifest SHA mismatch" in e for e in r["errors"]),r)
         finally:m.write_bytes(original)
 
