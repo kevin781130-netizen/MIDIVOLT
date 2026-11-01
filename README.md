@@ -103,6 +103,22 @@ py -3.11 -m venv .venv
 python -m pip install -e ".[audio,dev]"
 ```
 
+## Real music21 core acceptance
+
+After installing the project dependencies in a supported Python 3.11–3.13
+environment, run the fail-closed integration gate:
+
+```powershell
+python scripts/accept_music21_core.py
+```
+
+This uses the real installed `music21` engine (not mocks) to verify common
+flat-root and slash-bass chord symbols, half-diminished intervals, invalid
+symbol rejection, non-destructive chord/Bass MIDI generation, and C-major /
+A-minor key detection. It refuses to report PASS if `music21` is missing or
+outside `>=9.7.1,<10`. See the latest execution report under
+`docs/validation/`.
+
 ## External workstations: Sawdust and tsov
 
 MIDIVOLT can now create target-specific **standard MIDI** files for separately installed [Sawdust](https://github.com/NeonMedusa/Sawdust) (MIT) and [tsov](https://github.com/luolianst/tsov) (AGPL-3.0):
