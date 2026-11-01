@@ -71,6 +71,8 @@ def inspect(root: Path) -> dict:
         rel = "src/" + dotted.replace(".", "/") + ".py"
         code = read(rel)
         if not code:
+            if not any(item.endswith(":" + rel) for item in errors):
+                errors.append("EMPTY_ENTRYPOINT_MODULE:" + rel)
             continue
         try:
             tree = ast.parse(code, filename=rel)
