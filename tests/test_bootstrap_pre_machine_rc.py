@@ -47,6 +47,27 @@ class TestBootstrap(unittest.TestCase):
         self.assertEqual(r["reason"], "UNVERIFIED_GIT_HEAD")
         self.assertEqual(run.call_count, 1)
 
+    def test_python313_blocks_full_suite_before_network_download(self):
+        sha = "a" * 40
+        with patch.object(mod, "run", side_effect=[
+            {"status": "PASS", "stdout_tail": sha},
+            {"status": "PASS", "stdout_tail": ""}
+        ]) as command, patch.object(mod.sys, "version_info", (3, 13, 5)):
+            result = mod.bootstrap(allow_network=True)
+        self.assertEqual(result["reason"], "PYTHON311_REQUIRED_FOR_FULL_PRODUCT_SUITE")
+        self.assertEqual(command.call_count, 2)
+
+    def test_python311_progresses_to_download_when_checkout_clean(self):
+        sha = "b" * 40
+        with patch.object(mod, "run", side_effect=[
+            {"status": "PASS", "stdout_tail": sha},
+            {"status": "PASS", "stdout_tail": ""},
+            {"status": "FAIL", "exit_code": 1, "stderr_tail": "network blocked"},
+        ]) as command, patch.object(mod.sys, "version_info", (3, 11, 9)):
+            result = mod.bootstrap(allow_network=True)
+        self.assertEqual(result["reason"], "DEPENDENCY_DOWNLOAD_OR_BUILD_FAILED")
+        self.assertEqual(command.call_count, 3)
+
     def test_dirty_checkout_blocks_before_download(self):
         sha = "a" * 40
         with patch.object(mod, "run", side_effect=[
