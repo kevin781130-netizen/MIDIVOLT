@@ -42,6 +42,15 @@ def _events(track: mido.MidiTrack):
             yield absolute, msg
 
 
+def _track_end(track: mido.MidiTrack) -> int:
+    """Absolute SMF end tick, including trailing end_of_track delta-time."""
+    return sum(msg.time for msg in track)
+
+
+def _song_end(midi: mido.MidiFile) -> int:
+    return max((_track_end(track) for track in midi.tracks), default=0)
+
+
 def _scale(tick: int, src_ppq: int, dst_ppq: int) -> int:
     # All SMF ticks are nonnegative; round half up for deterministic MIDI timing.
     return (tick * dst_ppq * 2 + src_ppq) // (2 * src_ppq)
@@ -147,28 +156,26 @@ def _make_type1(midi: mido.MidiFile, ppq: int) -> mido.MidiFile:
     ends: list[int] = []
     if midi.type == 0:
         per_channel: dict[int, list[tuple[int, mido.Message]]] = {}
-        channel_ends = {}
-        total_tick = 0
+        # The original Type-0 end_of_track may follow the final note by bars.
+        # Preserve that tail on every split channel and the conductor lane.
+        full_end = _scale(_track_end(midi.tracks[0]), midi.ticks_per_beat, ppq)
         for tick, msg in _events(midi.tracks[0]):
             new_tick = _scale(tick, midi.ticks_per_beat, ppq)
-            total_tick = max(total_tick, new_tick)
             if hasattr(msg, "channel"):
                 per_channel.setdefault(msg.channel, []).append((new_tick, msg))
-                channel_ends[msg.channel] = new_tick
             else:
                 conductor.append((new_tick, msg))
         for channel in sorted(per_channel):
             tracks.append(per_channel[channel])
-            ends.append(channel_ends[channel])
-        conductor_end = total_tick
+            ends.append(full_end)
+        conductor_end = full_end
     else:
-        conductor_end = 0
+        conductor_end = _scale(_song_end(midi), midi.ticks_per_beat, ppq)
         for index, original in enumerate(midi.tracks):
             musical: list[tuple[int, mido.Message]] = []
-            end = 0
+            end = _scale(_track_end(original), midi.ticks_per_beat, ppq)
             for tick, msg in _events(original):
                 new_tick = _scale(tick, midi.ticks_per_beat, ppq)
-                end = max(end, new_tick)
                 if msg.is_meta and msg.type in GLOBAL_META:
                     conductor.append((new_tick, msg))
                     conductor_end = max(conductor_end, new_tick)
@@ -205,6 +212,9 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
     prepared = _make_type1(midi, ppq)
     if _signature(midi, ppq) != _signature(prepared, ppq):
         raise ValueError("Export changed one or more MIDI event values or tick positions")
+    expected_end = _scale(_song_end(midi), midi.ticks_per_beat, ppq)
+    if _song_end(prepared) != expected_end:
+        raise ValueError("Export changed MIDI song duration or trailing silence")
     fd, staging = tempfile.mkstemp(
         prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
     os.close(fd)
@@ -214,6 +224,8 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
         reopened = _read_mido_temp(staged)
         if _signature(midi, ppq) != _signature(reopened, ppq):
             raise ValueError("Serialized SMF roundtrip changed MIDI event content")
+        if _song_end(reopened) != expected_end:
+            raise ValueError("Serialized SMF roundtrip changed MIDI song duration")
         try:
             os.link(staged, target)
         except FileExistsError as exc:
@@ -229,6 +241,9 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
         "tracks": len(prepared.tracks),
         "note_events": _count_note_ons(prepared),
         "all_midi_events_preserved_after_tick_rescale": True,
+        "song_duration_preserved_after_tick_rescale": True,
+        "song_end_tick_original": _song_end(midi),
+        "song_end_tick_export": expected_end,
         "source_sha256": sha256(src.read_bytes()).hexdigest(),
         "output_sha256": sha256(target.read_bytes()).hexdigest(),
         "timing_quantization_possible": midi.ticks_per_beat != ppq,
@@ -251,6 +266,13 @@ def compare_smf(reference: str | Path, returned: str | Path) -> dict:
     events_after = _signature(after, common_ppq)
     missing = events_before - events_after
     added = events_after - events_before
+    # end_of_track is structurally reorganized for Type-0->Type-1 and
+    # conductor relocation, so compare the *song end* rather than per-track
+    # EOT messages. MIDI note events alone cannot detect trimmed trailing bars.
+    original_end = _song_end(before)
+    returned_end = _song_end(after)
+    duration_preserved = (original_end * after.ticks_per_beat
+                          == returned_end * before.ticks_per_beat)
     return {
         "source": str(Path(reference).resolve()),
         "roundtrip": str(Path(returned).resolve()),
@@ -258,7 +280,12 @@ def compare_smf(reference: str | Path, returned: str | Path) -> dict:
         "returned_tracks": len(after.tracks),
         "note_on_reference": _count_note_ons(before),
         "note_on_returned": _count_note_ons(after),
-        "exact_event_match": not missing and not added,
+        "exact_event_match": not missing and not added and duration_preserved,
+        "song_duration_preserved": duration_preserved,
+        "reference_end_tick": original_end,
+        "returned_end_tick": returned_end,
+        "reference_ppq": before.ticks_per_beat,
+        "returned_ppq": after.ticks_per_beat,
         "missing_events": sum(missing.values()),
         "added_events": sum(added.values()),
         "warning": (
