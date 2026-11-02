@@ -43,7 +43,7 @@ class JunitGateTests(unittest.TestCase):
     def test_unknown_python_policy_fails_closed(self):
         root = Path(self.temp.name)
         (root / "pyproject.toml").write_text(
-            '[project]\\nname="midivolt"\\nrequires-python=">=3.11"\\n')
+            '[project]\nname="midivolt"\nrequires-python=">=3.11"\n')
         self.assertEqual(gate.supported_runtime(root, (3, 13)),
                          (False, "INVALID_PROJECT_PYTHON_POLICY"))
 
@@ -52,7 +52,7 @@ class JunitGateTests(unittest.TestCase):
         self.assertEqual(gate.supported_runtime(root, (3, 13)),
                          (False, "INVALID_PROJECT_PYTHON_POLICY"))
         (root / "pyproject.toml").write_text(
-            '[project]\\nname="other"\\nrequires-python=">=3.11,<3.14"\\n')
+            '[project]\nname="other"\nrequires-python=">=3.11,<3.14"\n')
         self.assertEqual(gate.supported_runtime(root, (3, 13)),
                          (False, "INVALID_PROJECT_PYTHON_POLICY"))
 
