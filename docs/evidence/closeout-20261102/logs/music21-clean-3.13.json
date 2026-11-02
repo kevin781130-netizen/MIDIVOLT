@@ -1,0 +1,1 @@
+{"music21": "9.9.2", "python": "3.13.18", "results": {"arrangement": {"bass_notes": 2, "chord_notes": 8, "slash_bass_midi": [46, 45], "source_preserved": true}, "chord_symbols": 6, "invalid_chord_rejected": true, "key_detection": {"A_minor": "A minor", "C_major": "C major"}}, "status": "PASS_REAL_MUSIC21_ACCEPTANCE"}

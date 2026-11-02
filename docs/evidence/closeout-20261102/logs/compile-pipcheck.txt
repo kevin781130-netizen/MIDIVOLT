@@ -1,0 +1,6 @@
+compileall 3.11 exit=0
+No broken requirements found.
+compileall 3.12 exit=0
+No broken requirements found.
+compileall 3.13 exit=0
+No broken requirements found.

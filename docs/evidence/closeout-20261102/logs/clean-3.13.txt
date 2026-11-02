@@ -1,0 +1,18 @@
+install exit=0
+/tmp/claude-0/-home-user-MIDIVOLT/5784e3fe-9649-5741-b701-976e501ecfde/scratchpad/c3.13/lib/python3.13/site-packages/midivolt/__init__.py 0.1.0rc1
+help midivolt exit=0
+help midivolt-prompt exit=0
+help midivolt-ai exit=0
+help midivolt-bridge exit=0
+help midivolt-tsov exit=0
+help midivolt-review exit=0
+help midivolt-model exit=0
+help midivolt-hub exit=0
+help midivolt-env exit=0
+help midivolt-accept exit=0
+help midivolt-cubase exit=0
+help midivolt-transcribe exit=0
+help midivolt-evaluate exit=0
+help_pass=13/13
+music21 exit=0  {"A_minor": "A minor", "C_major": "C major"}}, "status": "PASS_REAL_MUSIC21_ACCEPTANCE"}
+probe exit=0 PASS
