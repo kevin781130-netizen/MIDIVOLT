@@ -1,7 +1,7 @@
 """Offline, dependency-free MIDIVOLT Windows RC source/package contract check.
 
 This is a PRE-BUILD check. It does not claim the wheel can be installed,
-that Python 3.11 works, or that Cubase has been exercised.
+that any supported Python runtime works, or that Cubase was exercised.
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def inspect(root: Path) -> dict:
     version = project.get("version")
     if project.get("name") != "midivolt" or not re.fullmatch(r"\d+\.\d+\.\d+rc\d+", str(version)):
         errors.append("INVALID_PROJECT_VERSION")
-    if project.get("requires-python") != ">=3.11,<3.12":
+    if project.get("requires-python") != ">=3.11,<3.14":
         errors.append("RUNTIME_CONTRACT_MISMATCH")
     if project.get("license") != "Apache-2.0" or set(project.get("license-files", [])) != {"LICENSE", "THIRD_PARTY_NOTICES.md"}:
         errors.append("LICENSE_SOURCE_METADATA_MISMATCH")
