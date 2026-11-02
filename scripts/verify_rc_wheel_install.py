@@ -100,6 +100,9 @@ def inspect_install(wheel: Path, project: Path, wheelhouse: Path, expected_sha25
     environment.update({"PIP_CONFIG_FILE": os.devnull, "PIP_NO_INDEX": "1",
                         "PIP_NO_INPUT": "1", "PIP_DISABLE_PIP_VERSION_CHECK": "1",
                         "PYTHONNOUSERSITE": "1"})
+    # 乾淨安裝不得繼承 PYTHONPATH：否則 src/ 內的 egg-info 會讓 pip 誤判已安裝而略過安裝。
+    for leaked in ("PYTHONPATH", "PYTHONHOME"):
+        environment.pop(leaked, None)
     try:
         with tempfile.TemporaryDirectory(prefix="midivolt-verified-install-") as temp:
             venv_dir = Path(temp) / "venv"

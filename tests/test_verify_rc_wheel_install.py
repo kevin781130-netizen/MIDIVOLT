@@ -4,6 +4,8 @@ from __future__ import annotations
 from hashlib import sha256
 from pathlib import Path
 import importlib.util
+import os
+from unittest import mock
 import subprocess
 import sys
 import tempfile
@@ -73,6 +75,18 @@ class InstallGateTests(unittest.TestCase):
         self.assertEqual(result["installed_cli_count"], 13)
         self.assertEqual(result["supported_runtime_certified"], supported)
         self.assertTrue(result["installation_attempted"])
+
+    def test_inherited_pythonpath_metadata_does_not_skip_clean_install(self):
+        # 回歸：PYTHONPATH 內已有 midivolt metadata 時，仍須真的安裝到乾淨 venv。
+        with tempfile.TemporaryDirectory() as leak:
+            info = Path(leak) / "midivolt.egg-info"
+            info.mkdir()
+            (info / "PKG-INFO").write_text("Metadata-Version: 2.1\nName: midivolt\nVersion: 0.1.0rc1\n")
+            with mock.patch.dict(os.environ, {"PYTHONPATH": leak}):
+                result = checker.inspect_install(self.wheel, self.project, self.dist, self.hash,
+                                                 diagnostic_unsupported_python=True)
+        self.assertEqual(result["installed_cli_count"], 13, result)
+        self.assertEqual(result["errors"], [])
 
     def test_python_313_supported_by_new_core_policy(self):
         self.assertTrue(checker.supported_python(">=3.11,<3.14", (3, 13)))
