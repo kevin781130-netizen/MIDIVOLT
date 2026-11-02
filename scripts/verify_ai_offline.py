@@ -1,17 +1,19 @@
 """Offline AI→MIDI→approval acceptance gate. No GitHub Actions.
 
-The supported-runtime PASS status requires actual Python 3.11 and verified
-JUnit counts; --diagnostic-unsupported-python can never certify a release.
+A supported-runtime PASS requires the actual pyproject.toml core Python policy
+and verified JUnit counts; the diagnostic override cannot certify a release.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 import xml.etree.ElementTree as ET
 
 TEST_FILES = (
@@ -46,6 +48,28 @@ def inspect_junit(path: Path) -> dict[str, int]:
     return totals
 
 
+def supported_runtime(root: Path, version: tuple[int, int] | None = None) -> tuple[bool, str]:
+    """Derive runtime gate from actual project metadata; reject unknown policies."""
+    try:
+        project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        if project.get("name") != "midivolt":
+            return False, "INVALID_PROJECT_PYTHON_POLICY"
+        spec = project["requires-python"]
+        if not isinstance(spec, str):
+            return False, "INVALID_PROJECT_PYTHON_POLICY"
+        match = re.fullmatch(r">=(\d+)\.(\d+),<(\d+)\.(\d+)", spec)
+        if match is None:
+            return False, "INVALID_PROJECT_PYTHON_POLICY"
+        low = (int(match[1]), int(match[2]))
+        high = (int(match[3]), int(match[4]))
+        if low >= high or low < (3, 11):
+            return False, "INVALID_PROJECT_PYTHON_POLICY"
+        actual = version if version is not None else sys.version_info[:2]
+        return low <= actual < high, spec
+    except (OSError, UnicodeError, ValueError, KeyError, tomllib.TOMLDecodeError):
+        return False, "INVALID_PROJECT_PYTHON_POLICY"
+
+
 def run(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--junit", type=Path, help="new pytest JUnit report path; no overwrite")
@@ -53,9 +77,13 @@ def run(argv: list[str] | None = None) -> int:
                    help="run on unsupported Python without certifying the runtime")
     args = p.parse_args(argv)
     root = Path(__file__).resolve().parent.parent
-    supported = sys.version_info[:2] == (3, 11)
+    supported, expected = supported_runtime(root)
+    if expected == "INVALID_PROJECT_PYTHON_POLICY":
+        print(json.dumps({"status": "BLOCKED_PROJECT_POLICY", "actual": sys.version.split()[0],
+                          "test_count": 0}))
+        return 4
     if not supported and not args.diagnostic_unsupported_python:
-        print(json.dumps({"status": "BLOCKED_PYTHON", "expected": "3.11.x",
+        print(json.dumps({"status": "BLOCKED_PYTHON", "expected": expected,
                           "actual": sys.version.split()[0], "test_count": 0}))
         return 3
     missing = [name for name in TEST_FILES if not (root / name).is_file()]
