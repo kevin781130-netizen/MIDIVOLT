@@ -29,6 +29,33 @@ class JunitGateTests(unittest.TestCase):
         ET.ElementTree(suites).write(self.xml, encoding="utf-8", xml_declaration=True)
         return gate.inspect_junit(self.xml)
 
+    def test_core_python_runtime_matrix_from_real_project(self):
+        root = SCRIPT.parent.parent
+        for version in ((3, 11), (3, 12), (3, 13)):
+            with self.subTest(version=version):
+                self.assertEqual(gate.supported_runtime(root, version),
+                                 (True, ">=3.11,<3.14"))
+        for version in ((3, 10), (3, 14)):
+            with self.subTest(version=version):
+                self.assertEqual(gate.supported_runtime(root, version),
+                                 (False, ">=3.11,<3.14"))
+
+    def test_unknown_python_policy_fails_closed(self):
+        root = Path(self.temp.name)
+        (root / "pyproject.toml").write_text(
+            '[project]\\nname="midivolt"\\nrequires-python=">=3.11"\\n')
+        self.assertEqual(gate.supported_runtime(root, (3, 13)),
+                         (False, "INVALID_PROJECT_PYTHON_POLICY"))
+
+    def test_missing_or_wrong_project_metadata_fails_closed(self):
+        root = Path(self.temp.name)
+        self.assertEqual(gate.supported_runtime(root, (3, 13)),
+                         (False, "INVALID_PROJECT_PYTHON_POLICY"))
+        (root / "pyproject.toml").write_text(
+            '[project]\\nname="other"\\nrequires-python=">=3.11,<3.14"\\n')
+        self.assertEqual(gate.supported_runtime(root, (3, 13)),
+                         (False, "INVALID_PROJECT_PYTHON_POLICY"))
+
     def test_valid_40_cases(self):
         self.assertEqual(self.write()["tests"], 40)
 
