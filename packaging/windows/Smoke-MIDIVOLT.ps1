@@ -40,21 +40,7 @@ try {
     # Preserve source ticks-per-quarter: forced 480 may quantize notes and
     # make our own strict event audit fail before Cubase is ever launched.
     $sourcePpq = & $PythonExe -c "import mido, sys; print(mido.MidiFile(sys.argv[1]).ticks_per_beat)" $approved
-    if ($LASTEXITCODE -ne 0 -or -not ($sourcePpq -match '^\d+
-    Invoke-CLI "midivolt-cubase" @("compare", "--reference", $approved,
-                                   "--returned", $cubase, "--strict")
-    foreach ($extra in @("midivolt-model", "midivolt-env", "midivolt-accept",
-                          "midivolt-tsov", "midivolt-bridge")) {
-        Invoke-CLI $extra @("--help")
-    }
-    if (-not (Test-Path -LiteralPath $cubase -PathType Leaf)) {
-        throw "Cubase Type 1 sample MIDI is missing."
-    }
-    Write-Host "WINDOWS_RC_SMOKE=PASS"
-} finally {
-    Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction SilentlyContinue
-}
-)) {
+    if ($LASTEXITCODE -ne 0 -or -not ($sourcePpq -match '^\d+$')) {
         throw "Could not determine the approved MIDI PPQ."
     }
     $sourcePpq = [int]$sourcePpq
