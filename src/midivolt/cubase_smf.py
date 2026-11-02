@@ -219,7 +219,9 @@ def _make_type1(midi: mido.MidiFile, ppq: int) -> mido.MidiFile:
                 if msg.is_meta and msg.type in GLOBAL_META:
                     conductor.append((new_tick, msg))
                     conductor_end = max(conductor_end, new_tick)
-                elif index == 0 and msg.is_meta:
+                elif index == 0 and (msg.is_meta or msg.type == "sysex"):
+                    # SysEx has no MIDI channel: when it originates on track 0
+                    # it belongs to the conductor lane, not a new musical lane.
                     conductor.append((new_tick, msg))
                     conductor_end = max(conductor_end, new_tick)
                 else:
