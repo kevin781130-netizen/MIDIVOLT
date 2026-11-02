@@ -1,7 +1,7 @@
 """Verified text snapshot -> real setuptools wheel, without GitHub or Actions.
 
 This checks building and package integrity, not dependency installation or DAW.
-Official acceptance requires Python 3.11; other Pythons are diagnostic only.
+Supported core Python range comes from the pinned source project metadata.
 """
 from __future__ import annotations
 
@@ -105,14 +105,22 @@ def check_wheel(wheel: Path, source: Path) -> dict:
     return {"source_modules": len(sources), "cli_entries": len(scripts), "zip_files": len(names)}
 
 
+def supported_python(spec: str, version: tuple[int, int] | None = None) -> bool:
+    """Fail-closed simple Python range parser for core RC >=M.m,<M.m."""
+    match = re.fullmatch(r">=(\d+)\.(\d+),<(\d+)\.(\d+)", spec)
+    if not match:
+        return False
+    low = (int(match[1]), int(match[2]))
+    high = (int(match[3]), int(match[4]))
+    current = version if version is not None else sys.version_info[:2]
+    return low <= current < high
+
+
 def build_verified(root: Path, output_dir: Path, *, diagnostic: bool = False,
                    expected_source_commit: str = EXPECTED_SOURCE_COMMIT) -> dict:
     """Validate before writing, then build+check in an isolated temporary dir."""
-    result = {"status": "BLOCKED", "supported_python": sys.version_info[:2] == (3, 11),
+    result = {"status": "BLOCKED", "supported_python": False,
               "python": sys.version.split()[0], "built": False, "errors": []}
-    if not result["supported_python"] and not diagnostic:
-        result["errors"].append("PYTHON_3_11_REQUIRED")
-        return result
     if not re.fullmatch(r"[0-9a-f]{40}", expected_source_commit):
         result["errors"].append("INVALID_EXPECTED_SOURCE_COMMIT")
         return result
@@ -123,6 +131,14 @@ def build_verified(root: Path, output_dir: Path, *, diagnostic: bool = False,
         manifest, sourcefiles = load_snapshot(root)
         if manifest.get("source_commit") != expected_source_commit:
             raise BuildGateError("SOURCE_COMMIT_MISMATCH")
+        project_contents = dict(sourcefiles).get("pyproject.toml")
+        if project_contents is None:
+            raise BuildGateError("MISSING_PROJECT_METADATA")
+        project = tomllib.loads(project_contents.decode("utf-8"))["project"]
+        result["supported_python"] = supported_python(str(project.get("requires-python", "")))
+        if not result["supported_python"] and not diagnostic:
+            result["errors"].append("PYTHON_VERSION_OUTSIDE_PROJECT_RANGE")
+            return result
         with tempfile.TemporaryDirectory(prefix="midivolt-rebuilt-") as tmp:
             src = Path(tmp) / "srcdir"
             src.mkdir()
@@ -154,7 +170,7 @@ def build_verified(root: Path, output_dir: Path, *, diagnostic: bool = False,
             # O_EXCL prevents accidental replacement of an existing file.
             with dest.open("xb") as f:
                 f.write(wheel.read_bytes())
-            result.update(status="PASS_SUPPORTED_PYTHON311_WHEEL_BUILD" if result["supported_python"] else "PASS_DIAGNOSTIC_WHEEL_BUILD",
+            result.update(status="PASS_SUPPORTED_PYTHON_WHEEL_BUILD" if result["supported_python"] else "PASS_DIAGNOSTIC_WHEEL_BUILD",
                           built=True, wheel=str(dest), sha256=sha256(dest.read_bytes()).hexdigest(),
                           snapshot_commit=manifest["source_commit"], **checks)
     except (OSError, ValueError, TimeoutError, subprocess.TimeoutExpired, KeyError, tomllib.TOMLDecodeError) as exc:
