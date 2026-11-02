@@ -37,8 +37,32 @@ try {
     Invoke-CLI "midivolt-review" @("apply", "--manifest", $manifest,
                                    "--out", $approved, "--approve")
     Invoke-CLI "midivolt-cubase" @("check", "--input", $approved)
+    # Preserve source ticks-per-quarter: forced 480 may quantize notes and
+    # make our own strict event audit fail before Cubase is ever launched.
+    $sourcePpq = & $PythonExe -c "import mido, sys; print(mido.MidiFile(sys.argv[1]).ticks_per_beat)" $approved
+    if ($LASTEXITCODE -ne 0 -or -not ($sourcePpq -match '^\d+
+    Invoke-CLI "midivolt-cubase" @("compare", "--reference", $approved,
+                                   "--returned", $cubase, "--strict")
+    foreach ($extra in @("midivolt-model", "midivolt-env", "midivolt-accept",
+                          "midivolt-tsov", "midivolt-bridge")) {
+        Invoke-CLI $extra @("--help")
+    }
+    if (-not (Test-Path -LiteralPath $cubase -PathType Leaf)) {
+        throw "Cubase Type 1 sample MIDI is missing."
+    }
+    Write-Host "WINDOWS_RC_SMOKE=PASS"
+} finally {
+    Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction SilentlyContinue
+}
+)) {
+        throw "Could not determine the approved MIDI PPQ."
+    }
+    $sourcePpq = [int]$sourcePpq
+    if ($sourcePpq -lt 24 -or $sourcePpq -gt 960) {
+        throw "The approved MIDI PPQ is outside the supported 24..960 range."
+    }
     Invoke-CLI "midivolt-cubase" @("prepare", "--input", $approved,
-                                   "--out", $cubase, "--ppq", "480")
+                                   "--out", $cubase, "--ppq", "$sourcePpq")
     Invoke-CLI "midivolt-cubase" @("compare", "--reference", $approved,
                                    "--returned", $cubase, "--strict")
     foreach ($extra in @("midivolt-model", "midivolt-env", "midivolt-accept",
