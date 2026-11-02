@@ -37,3 +37,7 @@ def test_windows_rc_scripts_are_checked_in():
     assert "already exists" in installer
     assert "WINDOWS_RC_SMOKE=PASS" in smoke
     assert "actions/upload-artifact@v4" in workflow
+    verify = (repo / "packaging/windows/Verify-MIDIVOLT-RC.ps1").read_text(encoding="utf-8")
+    assert "SHA256SUMS.txt" in verify and "WINDOWS_RC_ACCEPTANCE=" in verify
+    for cli in ("midivolt-transcribe", "midivolt-evaluate", "midivolt-cubase"):
+        assert cli in verify

@@ -17,6 +17,10 @@ directory. Installation is not administrator-dependent. Network mode permits pip
 to download dependencies from configured package indexes; offline mode uses only
 the provided wheelhouse. An offline wheelhouse must contain every required dependency.
 
+Single-command acceptance (verifies SHA256SUMS.txt, installs into a NEW venv, runs smoke
+and every registered CLI --help, writes MIDIVOLT-windows-acceptance-result.json):
+  PowerShell -NoProfile -ExecutionPolicy Bypass -File .\Verify-MIDIVOLT-RC.ps1 -AllowNetwork
+
 The installer invokes Smoke-MIDIVOLT.ps1 after pip installation. This
 executes local MIDI generation, analysis, proposal lock/approve, Model Hub
 offline catalog, Cubase Type 1 conversion and semantic event comparison.
