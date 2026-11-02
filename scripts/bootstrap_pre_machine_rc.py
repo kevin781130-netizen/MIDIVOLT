@@ -64,6 +64,13 @@ def bootstrap(*, allow_network: bool = False, wheelhouse: Path | None = None) ->
     if clean["status"] != "PASS" or clean["stdout_tail"].strip():
         result["reason"] = "DIRTY_GIT_CHECKOUT"
         return result
+    # The complete repository test suite includes upstream model environments
+    # that accept Python 3.10/3.11 only, while the product core accepts 3.11-3.13.
+    # Core and the model suite overlap only at 3.11. Do not waste package
+    # downloads or imply an unsupported model runtime can be fully certified.
+    if sys.version_info[:2] != (3, 11):
+        result["reason"] = "PYTHON311_REQUIRED_FOR_FULL_PRODUCT_SUITE"
+        return result
     with tempfile.TemporaryDirectory(prefix="midivolt-rc-bootstrap-") as temp:
         tmp = Path(temp)
         wheels = tmp / "wheels" if allow_network else wheelhouse
