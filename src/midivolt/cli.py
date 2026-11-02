@@ -62,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
 
             if Path(args.input).resolve() == Path(args.out).resolve() and not args.overwrite:
                 raise ValueError("Input and output refer to the same file; specify --overwrite.")
+            import music21  # preflight before I/O: report missing core dependency first
+
             original = read_midi(args.input)
             arranged = add_accompaniment(
                 original, args.chords, beats_per_chord=args.beats_per_chord,
@@ -71,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Saved {args.out}")
         elif args.command == "analyze":
             from .theory import estimate_key
+
+            import music21  # preflight before I/O: report missing core dependency first
 
             midi = read_midi(args.input)
             times, tempos = midi.get_tempo_changes()
