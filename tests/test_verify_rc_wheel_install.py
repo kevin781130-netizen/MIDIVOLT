@@ -68,10 +68,16 @@ class InstallGateTests(unittest.TestCase):
         self.assertFalse(result["supported_runtime_certified"])
         self.assertTrue(result["installation_attempted"])
 
+    def test_python_313_supported_by_new_core_policy(self):
+        self.assertTrue(checker.supported_python(">=3.11,<3.14", (3, 13)))
+        self.assertFalse(checker.supported_python(">=3.11,<3.12", (3, 13)))
+        self.assertFalse(checker.supported_python(">=3.11,<3.14", (3, 14)))
+        self.assertFalse(checker.supported_python("broken", (3, 13)))
+
     def test_unsupported_runtime_default_fails_closed(self):
         if sys.version_info[:2] == (3, 11): self.skipTest("Only checks unsupported-version mode")
         result = checker.inspect_install(self.wheel, self.project, self.dist, self.hash)
-        self.assertIn("PYTHON_3_11_REQUIRED", result["errors"])
+        self.assertIn("PYTHON_VERSION_OUTSIDE_PROJECT_RANGE", result["errors"])
         self.assertFalse(result["installation_attempted"])
 
     def test_bad_sha_rejects_before_install(self):
