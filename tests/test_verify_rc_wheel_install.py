@@ -24,6 +24,8 @@ class InstallGateTests(unittest.TestCase):
         src = cls.root / "src/midivolt"
         src.mkdir(parents=True)
         (cls.root / "README.md").write_text("Synthetic test-only package. Not MIDIVOLT production.\n")
+        (cls.root / "LICENSE").write_text("Apache-2.0 synthetic test license.\n")
+        (cls.root / "THIRD_PARTY_NOTICES.md").write_text("Synthetic test notices.\n")
         (src / "__init__.py").write_text('__version__ = "0.1.0rc1"\n')
         declared = []
         for name in checker.EXPECTED_SCRIPTS:
@@ -45,7 +47,9 @@ class InstallGateTests(unittest.TestCase):
         cls.project = cls.root / "pyproject.toml"
         cls.project.write_text('[build-system]\nrequires=["setuptools>=68","wheel"]\nbuild-backend="setuptools.build_meta"\n'
                 '[project]\nname="midivolt"\nversion="0.1.0rc1"\nrequires-python=">=3.11,<3.12"\n'
-                'description="fixture"\nreadme="README.md"\n[project.scripts]\n' + '\n'.join(declared) + '\n'
+                'description="fixture"\nreadme="README.md"\n'
+                'license="Apache-2.0"\nlicense-files=["LICENSE","THIRD_PARTY_NOTICES.md"]\n'
+                '[project.scripts]\n' + '\n'.join(declared) + '\n'
                 '[tool.setuptools.packages.find]\nwhere=["src"]\n')
         cls.dist = cls.root / "dist"
         cls.dist.mkdir()
