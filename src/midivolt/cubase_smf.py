@@ -67,6 +67,46 @@ def _signature(midi: mido.MidiFile, dest_ppq: int) -> Counter:
     return events
 
 
+def _musical_lane_signature(midi: mido.MidiFile, dest_ppq: int) -> Counter | None:
+    """Audit musical track memberships without depending on track ordering.
+
+    Type 0 has no independent lanes. In Type 1, conductor/global metadata
+    may be relocated from any track to track 0 and musical events originally
+    on track 0 may be moved to a separate track. Neither is track reassignment.
+    Non-global events on tracks 1+ (including track names and controllers)
+    must remain grouped with their original musical lane.
+    """
+    if midi.type != 1:
+        return None
+    lanes = Counter()
+    for index, track in enumerate(midi.tracks):
+        items = Counter()
+        for tick, msg in _events(track):
+            if msg.is_meta and msg.type in GLOBAL_META:
+                continue
+            if index == 0 and not hasattr(msg, "channel"):
+                # _make_type1 moves track-0 metadata / SysEx to conductor.
+                # The global event signature audits their values and times.
+                continue
+            data = msg.dict()
+            data.pop("time", None)
+            items[(_scale(tick, midi.ticks_per_beat, dest_ppq),
+                   json.dumps(data, sort_keys=True, ensure_ascii=False))] += 1
+        if items:
+            lanes[tuple(sorted(items.items()))] += 1
+    return lanes
+
+
+def _lanes_preserved(before: mido.MidiFile, after: mido.MidiFile,
+                     dest_ppq: int) -> bool:
+    if before.type == 0:
+        # Splitting the single Type-0 track by channel is expected.
+        return True
+    return (after.type == 1 and
+            _musical_lane_signature(before, dest_ppq) ==
+            _musical_lane_signature(after, dest_ppq))
+
+
 def _count_note_ons(midi: mido.MidiFile) -> int:
     return sum(
         1 for track in midi.tracks for msg in track
@@ -212,6 +252,8 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
     prepared = _make_type1(midi, ppq)
     if _signature(midi, ppq) != _signature(prepared, ppq):
         raise ValueError("Export changed one or more MIDI event values or tick positions")
+    if not _lanes_preserved(midi, prepared, ppq):
+        raise ValueError("Export changed original MIDI track membership")
     expected_end = _scale(_song_end(midi), midi.ticks_per_beat, ppq)
     if _song_end(prepared) != expected_end:
         raise ValueError("Export changed MIDI song duration or trailing silence")
@@ -224,6 +266,8 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
         reopened = _read_mido_temp(staged)
         if _signature(midi, ppq) != _signature(reopened, ppq):
             raise ValueError("Serialized SMF roundtrip changed MIDI event content")
+        if not _lanes_preserved(midi, reopened, ppq):
+            raise ValueError("Serialized SMF roundtrip changed MIDI track membership")
         if _song_end(reopened) != expected_end:
             raise ValueError("Serialized SMF roundtrip changed MIDI song duration")
         try:
@@ -241,6 +285,7 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
         "tracks": len(prepared.tracks),
         "note_events": _count_note_ons(prepared),
         "all_midi_events_preserved_after_tick_rescale": True,
+        "musical_track_membership_preserved": True,
         "song_duration_preserved_after_tick_rescale": True,
         "song_end_tick_original": _song_end(midi),
         "song_end_tick_export": expected_end,
@@ -266,6 +311,7 @@ def compare_smf(reference: str | Path, returned: str | Path) -> dict:
     events_after = _signature(after, common_ppq)
     missing = events_before - events_after
     added = events_after - events_before
+    lanes_preserved = _lanes_preserved(before, after, common_ppq)
     # end_of_track is structurally reorganized for Type-0->Type-1 and
     # conductor relocation, so compare the *song end* rather than per-track
     # EOT messages. MIDI note events alone cannot detect trimmed trailing bars.
@@ -280,7 +326,8 @@ def compare_smf(reference: str | Path, returned: str | Path) -> dict:
         "returned_tracks": len(after.tracks),
         "note_on_reference": _count_note_ons(before),
         "note_on_returned": _count_note_ons(after),
-        "exact_event_match": not missing and not added and duration_preserved,
+        "exact_event_match": not missing and not added and duration_preserved and lanes_preserved,
+        "musical_track_membership_preserved": lanes_preserved,
         "song_duration_preserved": duration_preserved,
         "reference_end_tick": original_end,
         "returned_end_tick": returned_end,
