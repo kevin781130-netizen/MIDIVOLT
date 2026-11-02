@@ -1,7 +1,7 @@
 """Offline install-and-import acceptance for an exact MIDIVOLT wheel.
 
 Requires a trusted local wheelhouse. No network, no trained models, no Actions.
-Diagnostic testing on non-3.11 Python cannot certify a release.
+The installed core runtime must satisfy the current project Requires-Python.
 """
 from __future__ import annotations
 
@@ -14,9 +14,19 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 import venv
 
 from verify_rc_wheel import inspect_wheel
+
+def supported_python(spec: str, version: tuple[int, int] | None = None) -> bool:
+    """Fail closed on unknown Requires-Python syntax (core RC is an exact range)."""
+    match = re.fullmatch(r">=(\d+)\.(\d+),<(\d+)\.(\d+)", spec)
+    if not match:
+        return False
+    current = version if version is not None else sys.version_info[:2]
+    return (int(match[1]), int(match[2])) <= current < (int(match[3]), int(match[4]))
+
 
 EXPECTED_SCRIPTS = (
     "midivolt", "midivolt-prompt", "midivolt-ai", "midivolt-bridge",
@@ -53,13 +63,10 @@ def inspect_install(wheel: Path, project: Path, wheelhouse: Path, expected_sha25
     """Fail closed: SHA/source contract -> offline venv install -> all CLIs load."""
     result = {
         "status": "BLOCKED", "python": sys.version.split()[0],
-        "supported_python": sys.version_info[:2] == (3, 11),
+        "supported_python": False,
         "supported_runtime_certified": False, "installation_attempted": False,
         "installed_cli_count": 0, "errors": [],
     }
-    if not result["supported_python"] and not diagnostic_unsupported_python:
-        result["errors"].append("PYTHON_3_11_REQUIRED")
-        return result
     if not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha256):
         result["errors"].append("INVALID_EXPECTED_SHA256")
         return result
@@ -68,6 +75,15 @@ def inspect_install(wheel: Path, project: Path, wheelhouse: Path, expected_sha25
         return result
     if any(p.is_symlink() for p in (wheel, wheelhouse, project)):
         result["errors"].append("SYMLINK_INPUT_REJECTED")
+        return result
+    try:
+        project_metadata = tomllib.loads(project.read_text(encoding="utf-8"))["project"]
+        result["supported_python"] = supported_python(project_metadata["requires-python"])
+    except (OSError, UnicodeError, KeyError, ValueError, tomllib.TOMLDecodeError):
+        result["errors"].append("INVALID_PROJECT_PYTHON_POLICY")
+        return result
+    if not result["supported_python"] and not diagnostic_unsupported_python:
+        result["errors"].append("PYTHON_VERSION_OUTSIDE_PROJECT_RANGE")
         return result
     digest = sha256(wheel.read_bytes()).hexdigest()
     result["sha256"] = digest
@@ -120,7 +136,7 @@ def inspect_install(wheel: Path, project: Path, wheelhouse: Path, expected_sha25
             if result["installed_cli_count"] != 13:
                 result["errors"].append("MISSING_CLI_LAUNCHERS")
                 return result
-            result["status"] = ("PASS_SUPPORTED_PYTHON311_INSTALL" if result["supported_python"]
+            result["status"] = ("PASS_SUPPORTED_PYTHON_INSTALL" if result["supported_python"]
                                 else "PASS_DIAGNOSTIC_UNSUPPORTED_PYTHON")
             result["supported_runtime_certified"] = result["supported_python"]
             return result
