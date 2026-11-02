@@ -65,6 +65,13 @@ def release_gate(wheelhouse: Path | None, expected_head: str | None = None) -> d
         if tree["status"] != "PASS" or tree["stdout_tail"].strip():
             report["reason"] = "CHECKOUT_DIRTY_OR_UNVERIFIED"
             return report
+        # A certifiable full-suite gate must run Python 3.11: the product
+        # supports 3.11-3.13, but model-environment tests require 3.10/3.11.
+        # Block before the time-consuming suite rather than reporting a
+        # misleading full-suite success on an unsupported combination.
+        if sys.version_info[:2] != (3, 11):
+            report["reason"] = "PYTHON311_REQUIRED_FOR_FULL_PRODUCT_SUITE"
+            return report
     for stage, cmd in (
         ("source_contract", [sys.executable, "scripts/verify_rc_source_contract.py", "--root", str(ROOT)]),
         ("full_pytest", [sys.executable, "-m", "pytest", "-q", "tests"]),
