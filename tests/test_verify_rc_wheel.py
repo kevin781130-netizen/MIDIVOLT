@@ -37,7 +37,7 @@ class WheelVerifierTests(unittest.TestCase):
             (target_dir / (x + ".py")).write_text("def main(argv=None):\n    return 0\n")
             entrypoints.append(f'midivolt-{x} = "midivolt.{x}:main"')
         cls.project.write_text('[build-system]\nrequires = ["setuptools>=77", "wheel"]\nbuild-backend = "setuptools.build_meta"\n'
-                               '[project]\nname = "midivolt"\nversion = "0.1.0rc1"\nrequires-python = ">=3.11,<3.12"\n'
+                               '[project]\nname = "midivolt"\nversion = "0.1.0rc1"\nrequires-python = ">=3.11,<3.14"\n'
                                'description = "fixture"\nreadme = "README.md"\nlicense = "Apache-2.0"\nlicense-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]\n[project.scripts]\n' + '\n'.join(entrypoints) + '\n'
                                '[tool.setuptools.packages.find]\nwhere = ["src"]\n')
         result = subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", "--no-build-isolation", "--ignore-requires-python", "-w", str(cls.root / "dist"), str(cls.root)], capture_output=True, text=True, check=False)
@@ -129,7 +129,7 @@ class WheelVerifierTests(unittest.TestCase):
 
     def test_wrong_requires_python_fails(self):
         name = self.dist + "METADATA"
-        meta = self.entries[name].replace(b"Requires-Python: <3.12,>=3.11", b"Requires-Python: >=3.13")
+        meta = self.entries[name].replace(b"Requires-Python: <3.14,>=3.11", b"Requires-Python: >=3.13")
         self.assertNotEqual(meta, self.entries[name])
         output = self.check(self.mutate(changes={name: meta}))
         self.assertIn("PYTHON_RUNTIME_MISMATCH", output["errors"])

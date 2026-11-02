@@ -48,7 +48,7 @@ class InstallGateTests(unittest.TestCase):
         (src / "helper.py").write_text("def util(): return 0\n")
         cls.project = cls.root / "pyproject.toml"
         cls.project.write_text('[build-system]\nrequires=["setuptools>=68","wheel"]\nbuild-backend="setuptools.build_meta"\n'
-                '[project]\nname="midivolt"\nversion="0.1.0rc1"\nrequires-python=">=3.11,<3.12"\n'
+                '[project]\nname="midivolt"\nversion="0.1.0rc1"\nrequires-python=">=3.11,<3.14"\n'
                 'description="fixture"\nreadme="README.md"\n'
                 'license="Apache-2.0"\nlicense-files=["LICENSE","THIRD_PARTY_NOTICES.md"]\n'
                 '[project.scripts]\n' + '\n'.join(declared) + '\n'
@@ -95,7 +95,7 @@ class InstallGateTests(unittest.TestCase):
         self.assertFalse(checker.supported_python("broken", (3, 13)))
 
     def test_unsupported_runtime_default_fails_closed(self):
-        if sys.version_info[:2] == (3, 11): self.skipTest("Only checks unsupported-version mode")
+        if (3, 11) <= sys.version_info[:2] < (3, 14): self.skipTest("Only checks unsupported-version mode")
         result = checker.inspect_install(self.wheel, self.project, self.dist, self.hash)
         self.assertIn("PYTHON_VERSION_OUTSIDE_PROJECT_RANGE", result["errors"])
         self.assertFalse(result["installation_attempted"])

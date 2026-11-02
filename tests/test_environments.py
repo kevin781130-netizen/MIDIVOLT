@@ -20,6 +20,12 @@ from midivolt.acceptance import acceptance_run
 from midivolt.io import write_midi, read_midi
 from midivolt.review_engine import create_proposal, check_proposal
 
+# optional 模型環境只支援 Python 3.10/3.11；核心 CLI 支援 3.11–3.13，不受此限制。
+_MODEL_PYTHON = sys.version_info[:2] in ((3, 10), (3, 11))
+MODEL_PYTHON_ONLY = pytest.mark.skipif(
+    not _MODEL_PYTHON, reason="optional model environments require Python 3.10/3.11")
+
+
 def _git(root, *argv):
     return subprocess.run(["git", "-C", str(root), *argv], check=True,
                           capture_output=True, text=True).stdout.strip()
@@ -47,6 +53,7 @@ def spec(tmp_path):
         "text2midi", checkout=root, expected_commit=sha,
         base_python=sys.executable, destination=env)
 
+@MODEL_PYTHON_ONLY
 def test_plan_is_read_only_and_checkout_pinned(tmp_path):
     model = spec(tmp_path)
     assert len(model.expected_commit) == 40
@@ -57,6 +64,7 @@ def test_plan_is_read_only_and_checkout_pinned(tmp_path):
         create_environment(model)
     assert not model.destination.exists()
 
+@MODEL_PYTHON_ONLY
 def test_commit_drift_and_tracked_modifications_rejected(tmp_path):
     model = spec(tmp_path)
     with pytest.raises(EnvironmentError, match="drift"):
@@ -68,6 +76,7 @@ def test_commit_drift_and_tracked_modifications_rejected(tmp_path):
         create_environment(model, confirm=True)
     assert not model.destination.exists()
 
+@MODEL_PYTHON_ONLY
 def test_nonempty_and_internal_target_rejected(tmp_path):
     model = spec(tmp_path)
     with pytest.raises(ValueError, match="outside"):
@@ -82,6 +91,7 @@ def test_nonempty_and_internal_target_rejected(tmp_path):
             expected_commit=model.expected_commit, base_python=sys.executable,
             destination=model.destination)
 
+@MODEL_PYTHON_ONLY
 def test_cli_requires_confirmation_before_creating(tmp_path, capsys):
     model = spec(tmp_path)
     args = ["create", "text2midi", "--checkout", str(model.checkout),
@@ -91,6 +101,7 @@ def test_cli_requires_confirmation_before_creating(tmp_path, capsys):
     assert "--confirm-create" in capsys.readouterr().err
     assert not model.destination.exists()
 
+@MODEL_PYTHON_ONLY
 def test_real_offline_venv_and_pip_install(tmp_path):
     """Actually runs system python -m venv and empty requirements pip install."""
     plan = spec(tmp_path)
@@ -118,6 +129,7 @@ def test_real_offline_venv_and_pip_install(tmp_path):
             plan.destination, confirm=True, wheelhouse=offline_wheels, timeout=180)
     assert not (tmp_path / "venv_other").exists()
 
+@MODEL_PYTHON_ONLY
 def test_verify_does_not_import_model_code(tmp_path):
     model = spec(tmp_path)
     create_environment(model, confirm=True)
@@ -230,3 +242,13 @@ def test_offline_requirements_reject_direct_url_before_pip(tmp_path, monkeypatch
     monkeypatch.setattr("midivolt.environments._inspect_checkout", lambda *a: None)
     with pytest.raises(EnvironmentError, match="Offline install refuses"):
         install_requirements(env, confirm=True, wheelhouse=wheelhouse)
+
+
+@pytest.mark.skipif(_MODEL_PYTHON, reason="only checks unsupported model Python")
+def test_model_environment_fails_closed_on_core_only_python(tmp_path):
+    # 3.12/3.13 是核心支援版本，但模型環境必須明確拒絕，而非靜默建立。
+    root, sha = checkout(tmp_path)
+    with pytest.raises(EnvironmentError, match="Python 3.10 or 3.11"):
+        plan_environment("text2midi", checkout=root, expected_commit=sha,
+                         base_python=sys.executable, destination=tmp_path / "env")
+    assert not (tmp_path / "env").exists()

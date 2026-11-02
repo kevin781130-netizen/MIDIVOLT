@@ -39,7 +39,7 @@ class WheelBuildTests(unittest.TestCase):
                                     'build-backend="setuptools.build_meta"\n'
                                     '[project]\nname="midivolt"\nversion="0.1.0rc1"\n'
                                     'description="fixture"\nreadme="README.md"\n'
-                                    'requires-python=">=3.11,<3.12"\n'
+                                    'requires-python=">=3.11,<3.14"\n'
                                     'license="Apache-2.0"\n'
                                     'license-files=["LICENSE","THIRD_PARTY_NOTICES.md"]\n'
                                     '[project.scripts]\n' +
@@ -130,7 +130,7 @@ class WheelBuildTests(unittest.TestCase):
         self.assertFalse(builder.supported_python("unexpected", (3, 13)))
 
     def test_no_python_311_defaults_to_block(self):
-        if sys.version_info[:2] == (3,11): self.skipTest("requires unsupported runtime")
+        if (3,11) <= sys.version_info[:2] < (3,14): self.skipTest("requires unsupported runtime")
         d=builder.build_verified(self.root,self.output,expected_source_commit=TEST_SOURCE_COMMIT)
         self.assertEqual(d["errors"],["PYTHON_VERSION_OUTSIDE_PROJECT_RANGE"])
         self.assertFalse(d["built"])
