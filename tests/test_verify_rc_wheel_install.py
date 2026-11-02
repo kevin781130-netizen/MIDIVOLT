@@ -67,9 +67,11 @@ class InstallGateTests(unittest.TestCase):
     def test_real_pip_wheel_installs_and_loads_13_console_scripts_offline(self):
         result = checker.inspect_install(self.wheel, self.project, self.dist, self.hash,
                                          diagnostic_unsupported_python=True)
-        self.assertEqual(result["status"], "PASS_DIAGNOSTIC_UNSUPPORTED_PYTHON", result)
+        supported = (3, 11) <= sys.version_info[:2] < (3, 14)
+        self.assertEqual(result["status"], "PASS_SUPPORTED_PYTHON_INSTALL" if supported
+                         else "PASS_DIAGNOSTIC_UNSUPPORTED_PYTHON", result)
         self.assertEqual(result["installed_cli_count"], 13)
-        self.assertFalse(result["supported_runtime_certified"])
+        self.assertEqual(result["supported_runtime_certified"], supported)
         self.assertTrue(result["installation_attempted"])
 
     def test_python_313_supported_by_new_core_policy(self):

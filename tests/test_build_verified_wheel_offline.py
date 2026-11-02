@@ -81,7 +81,8 @@ class WheelBuildTests(unittest.TestCase):
         cls.temp.cleanup()
 
     def test_actual_setuptools_build_produces_valid_wheel(self):
-        self.assertEqual(self.result["status"],"PASS_DIAGNOSTIC_WHEEL_BUILD",self.result)
+        expected="PASS_SUPPORTED_PYTHON_WHEEL_BUILD" if (3,11)<=sys.version_info[:2]<(3,14) else "PASS_DIAGNOSTIC_WHEEL_BUILD"
+        self.assertEqual(self.result["status"],expected,self.result)
         self.assertTrue(self.result["built"])
         self.assertEqual(self.result["source_modules"],36)
         self.assertEqual(self.result["cli_entries"],13)

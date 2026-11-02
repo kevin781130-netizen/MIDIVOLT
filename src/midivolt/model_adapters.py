@@ -42,6 +42,13 @@ def _file(value, label):
         raise ValueError(f"{label} must be a file: {p}")
     return p
 
+def _interpreter(value, label):
+    # 不可 resolve()：venv 的 python 是 symlink，解析後會跳出 venv 而遺失其套件。
+    p = Path(os.path.abspath(Path(value).expanduser()))
+    if not p.is_file():
+        raise ValueError(f"{label} must be a file: {p}")
+    return p
+
 def _dir(value, label):
     p = Path(value).expanduser().resolve(strict=True)
     if not p.is_dir():
@@ -87,7 +94,7 @@ def generate_candidate(*, model, python_executable, checkout, checkpoint,
         raise ValueError("--timeout must be 1..7200 seconds")
     if seed is not None and (type(seed) is not int or not 0 <= seed < 2**31):
         raise ValueError("--seed must be a nonnegative 31-bit integer")
-    exe = _file(python_executable, "Model Python interpreter")
+    exe = _interpreter(python_executable, "Model Python interpreter")
     root = _dir(checkout, "Upstream model checkout")
     if model == "text2midi":
         if not (root / "model" / "transformer_model.py").is_file():

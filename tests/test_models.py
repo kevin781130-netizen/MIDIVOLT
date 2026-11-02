@@ -98,6 +98,16 @@ def test_real_child_process_to_guarded_approval(tmp_path, monkeypatch, model):
         generate_candidate(**params)
 
 
+def test_model_interpreter_symlink_is_not_resolved(tmp_path):
+    # 回歸：venv 的 python 為 symlink，解析後會使用系統 Python 而遺失 venv 套件。
+    from midivolt.model_adapters import _interpreter
+    link = tmp_path / "venv-python"
+    link.symlink_to(sys.executable)
+    assert _interpreter(link, "x") == link
+    with pytest.raises(ValueError):
+        _interpreter(tmp_path, "x")
+
+
 def test_text_requires_explicit_prompt_and_assets(tmp_path):
     root, ckpt, vocab, t5 = upstream(tmp_path, "text2midi")
     with pytest.raises(ValueError, match="--prompt"):
