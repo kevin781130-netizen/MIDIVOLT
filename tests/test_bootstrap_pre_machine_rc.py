@@ -22,6 +22,20 @@ class TestBootstrap(unittest.TestCase):
         self.assertEqual(res["json_result"], full)
         self.assertLess(len(res["stdout_tail"]), 1300)
 
+    def test_nested_venv_keeps_same_python_version(self):
+        # 回歸：外層 venv 內再建立 venv 時必須維持相同的 Python 版本。
+        import subprocess
+        with tempfile.TemporaryDirectory() as folder:
+            outer, inner = Path(folder) / "outer", Path(folder) / "inner"
+            mod.create_venv(outer, with_pip=False)
+            py = outer / "bin" / "python"
+            if not py.exists():
+                self.skipTest("POSIX layout only")
+            subprocess.run([str(py), "-c", "import venv,sys;venv.EnvBuilder().create(sys.argv[1])", str(inner)], check=True)
+            version = lambda exe: subprocess.run([str(exe), "-c", "import sys;print(sys.version_info[:3])"],
+                                                 capture_output=True, text=True, check=True).stdout
+            self.assertEqual(version(inner / "bin" / "python"), version(py))
+
     def test_network_not_implicit(self):
         with patch.object(mod, "run") as run:
             r = mod.bootstrap()

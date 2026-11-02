@@ -37,6 +37,12 @@ def run(command: list[str], env: dict[str, str], timeout: int = 600) -> dict:
         return {"status": "BLOCKED", "reason": type(exc).__name__}
 
 
+def create_venv(path: Path, *, with_pip: bool = True) -> None:
+    # 使用 symlink：複製版 venv 的 sys._base_executable 可能解析到 PATH 上的其他
+    # Python（例如 /usr/bin/python），讓其內再建立的 venv 使用錯誤的直譯器版本。
+    venv.EnvBuilder(with_pip=with_pip, symlinks=os.name != "nt").create(path)
+
+
 def bootstrap(*, allow_network: bool = False, wheelhouse: Path | None = None) -> dict:
     result: dict = {"status": "BLOCKED", "stage": "PRECHECK", "certified": False}
     if not allow_network and wheelhouse is None:
@@ -92,7 +98,7 @@ def bootstrap(*, allow_network: bool = False, wheelhouse: Path | None = None) ->
         result["stage"] = "ISOLATED_ENV_INSTALL"
         envdir = tmp / "venv"
         try:
-            venv.EnvBuilder(with_pip=True).create(envdir)
+            create_venv(envdir)
         except (OSError, subprocess.CalledProcessError) as exc:
             result["reason"] = "VENV_CREATION_FAILED"
             result["error"] = type(exc).__name__
