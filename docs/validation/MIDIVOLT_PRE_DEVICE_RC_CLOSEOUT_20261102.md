@@ -33,7 +33,7 @@
 | `pip check` / compileall | PASS | PASS | PASS |
 
 ※ 官方認證流程刻意只在 3.11 發證（完整產品套件含 optional 模型環境）。3.12/3.13 以同一 `verify_pre_machine_rc.py` 逐階段執行，七階段皆 PASS，整體狀態為 `BLOCKED: EXPECTED_HEAD_REQUIRED_FOR_RELEASE`（未帶 `--expected-head`，設計如此，非失敗）。
-Skip 說明：3.11 的 4 個＝「僅非支援版本才跑」×3 + Basic Pitch 真模型 opt-in；3.12/3.13 的 9 個＝上述 + 6 個 optional 模型環境測試（僅 3.10/3.11）。xfail/xpass＝0。
+Skip 說明：3.11 的 4 個＝「僅不支援版本才跑」×2、「僅非 3.10/3.11 才跑的模型環境拒絕測試」×1、Basic Pitch 真模型 opt-in×1；3.12/3.13 的 9 個＝「僅不支援版本才跑」×2 + Basic Pitch×1 + 6 個 optional 模型環境測試（僅 3.10/3.11）。xfail/xpass＝0。
 repo 未設定 lint／type check（NOT_CONFIGURED）；以 `compileall` 與 `pip check` 代替並如實標註。
 
 ## MIDI 正確性（真實 CLI、乾淨安裝、PPQ 192/480/960、中文＋空白路徑）
