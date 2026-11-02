@@ -80,7 +80,9 @@ def _musical_lane_signature(midi: mido.MidiFile, dest_ppq: int) -> Counter | Non
         return None
     lanes = Counter()
     for index, track in enumerate(midi.tracks):
-        items = Counter()
+        # Keep ordered events, not a multiset: at an identical tick, MIDI
+        # Note Off -> Note On is not equivalent to Note On -> Note Off.
+        items = []
         for tick, msg in _events(track):
             if msg.is_meta and msg.type in GLOBAL_META:
                 continue
@@ -90,10 +92,10 @@ def _musical_lane_signature(midi: mido.MidiFile, dest_ppq: int) -> Counter | Non
                 continue
             data = msg.dict()
             data.pop("time", None)
-            items[(_scale(tick, midi.ticks_per_beat, dest_ppq),
-                   json.dumps(data, sort_keys=True, ensure_ascii=False))] += 1
+            items.append((_scale(tick, midi.ticks_per_beat, dest_ppq),
+                          json.dumps(data, sort_keys=True, ensure_ascii=False)))
         if items:
-            lanes[tuple(sorted(items.items()))] += 1
+            lanes[tuple(items)] += 1
     return lanes
 
 
