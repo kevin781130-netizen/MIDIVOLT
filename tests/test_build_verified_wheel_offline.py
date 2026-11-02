@@ -121,10 +121,17 @@ class WheelBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(builder.BuildGateError, "Incorrect packaged license bytes"):
                 builder.check_wheel(Path(self.result["wheel"]), tree)
 
+    def test_supported_python_range_parser(self):
+        self.assertTrue(builder.supported_python(">=3.11,<3.14", (3, 13)))
+        self.assertTrue(builder.supported_python(">=3.11,<3.14", (3, 11)))
+        self.assertFalse(builder.supported_python(">=3.11,<3.14", (3, 14)))
+        self.assertFalse(builder.supported_python(">=3.11,<3.12", (3, 13)))
+        self.assertFalse(builder.supported_python("unexpected", (3, 13)))
+
     def test_no_python_311_defaults_to_block(self):
         if sys.version_info[:2] == (3,11): self.skipTest("requires unsupported runtime")
-        d=builder.build_verified(self.root,self.output)
-        self.assertEqual(d["errors"],["PYTHON_3_11_REQUIRED"])
+        d=builder.build_verified(self.root,self.output,expected_source_commit=TEST_SOURCE_COMMIT)
+        self.assertEqual(d["errors"],["PYTHON_VERSION_OUTSIDE_PROJECT_RANGE"])
         self.assertFalse(d["built"])
 
     def test_refuses_overwriting_previous_wheel(self):
