@@ -86,6 +86,31 @@ class PreMachineGateTests(unittest.TestCase):
         self.assertEqual(result["reason"], "CHECKOUT_DIRTY_OR_UNVERIFIED")
         self.assertEqual(cmd.call_count, 2)
 
+    def test_pinned_release_refuses_python313_before_expensive_test_suite(self):
+        self.project()
+        sha = "a" * 40
+        values = [{"status": "PASS", "stdout_tail": sha},
+                  {"status": "PASS", "stdout_tail": ""}]
+        with patch.object(gate, "run_command", side_effect=values) as command, \
+             patch.object(gate.sys, "version_info", (3, 13, 5)):
+            r = gate.release_gate(None, sha)
+        self.assertEqual(r["reason"], "PYTHON311_REQUIRED_FOR_FULL_PRODUCT_SUITE")
+        self.assertEqual(r["status"], "BLOCKED")
+        self.assertEqual(command.call_count, 2)
+        self.assertEqual(r["stages"], {})
+
+    def test_pinned_python311_reaches_source_contract(self):
+        self.project()
+        sha = "b" * 40
+        values = [{"status": "PASS", "stdout_tail": sha},
+                  {"status": "PASS", "stdout_tail": ""},
+                  {"status": "FAIL", "exit_code": 2}]
+        with patch.object(gate, "run_command", side_effect=values) as command, \
+             patch.object(gate.sys, "version_info", (3, 11, 9)):
+            r = gate.release_gate(None, sha)
+        self.assertEqual(r["reason"], "STOP_AT_SOURCE_CONTRACT")
+        self.assertEqual(command.call_count, 3)
+
     def test_wheel_build_failure_blocks_after_all_real_test_markers(self):
         self.project()
         values = [{"status": "PASS", "stdout_tail": ""}, {"status": "PASS", "stdout_tail": ""},
