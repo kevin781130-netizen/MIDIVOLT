@@ -49,7 +49,15 @@ def parse_chords(progression: str) -> list[ChordSpec]:
                 raise ValueError("Unrecognized chord")
             root_pc = symbol.root().pitchClass
             bass_pc = symbol.bass().pitchClass
-            intervals = tuple(sorted({(p.pitchClass - root_pc) % 12 for p in pitches}))
+            chord_pitches = pitches
+            normalized = _normalize_chord_symbol(token)
+            if "/" in normalized:
+                # music21 會把非和弦音的 slash 低音加入 pitches；和弦聲部只取和弦本體，
+                # 低音另由 bass_pc 提供，避免低音重複混入和弦軌。
+                body = harmony.ChordSymbol(normalized[:normalized.rfind("/")])
+                if body.pitches and body.root() is not None and body.root().pitchClass == root_pc:
+                    chord_pitches = body.pitches
+            intervals = tuple(sorted({(p.pitchClass - root_pc) % 12 for p in chord_pitches}))
             if not intervals:
                 raise ValueError("Chord has no pitches")
         except (ValueError, TypeError, AttributeError, IndexError) as exc:

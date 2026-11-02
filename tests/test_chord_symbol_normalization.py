@@ -30,3 +30,12 @@ def test_music21_parses_common_flat_roots_and_slash_basses():
     assert set(specs[0].intervals) == {0, 4, 7, 11}
     assert set(specs[1].intervals) == {0, 3, 7, 10}
     assert set(specs[2].intervals) == {0, 4, 7, 10}
+
+
+def test_non_chord_tone_slash_bass_is_not_added_to_chord_voicing():
+    # 回歸：Bb7/Eb 的 Eb 是低音而非和弦音，不得出現在和弦音程中。
+    pytest.importorskip("music21")
+    spec = parse_chords("Bb7/Eb")[0]
+    assert spec.bass_pc == 3
+    assert set(spec.intervals) == {0, 4, 7, 10}
+    assert set(parse_chords("C/E")[0].intervals) == {0, 4, 7}
