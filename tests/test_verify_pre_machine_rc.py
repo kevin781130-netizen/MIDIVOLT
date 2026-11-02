@@ -69,6 +69,23 @@ class PreMachineGateTests(unittest.TestCase):
         self.assertEqual(r["reason"], "CHECKOUT_HEAD_MISMATCH")
         self.assertEqual(cmd.call_count, 1)
 
+    def test_invalid_expected_head_blocks_before_git(self):
+        self.project()
+        with patch.object(gate, "run_command") as cmd:
+            result = gate.release_gate(None, "not-a-40-character-sha")
+        self.assertEqual(result["reason"], "INVALID_EXPECTED_HEAD")
+        cmd.assert_not_called()
+
+    def test_dirty_checkout_blocks_before_product_tests(self):
+        self.project()
+        sha = "a" * 40
+        values = [{"status": "PASS", "stdout_tail": sha},
+                  {"status": "PASS", "stdout_tail": " M src/midivolt/ai_cli.py\n"}]
+        with patch.object(gate, "run_command", side_effect=values) as cmd:
+            result = gate.release_gate(None, sha)
+        self.assertEqual(result["reason"], "CHECKOUT_DIRTY_OR_UNVERIFIED")
+        self.assertEqual(cmd.call_count, 2)
+
     def test_wheel_build_failure_blocks_after_all_real_test_markers(self):
         self.project()
         values = [{"status": "PASS", "stdout_tail": ""}, {"status": "PASS", "stdout_tail": ""},
