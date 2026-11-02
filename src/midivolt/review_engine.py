@@ -59,6 +59,9 @@ def _global_signature(midi: pretty_midi.PrettyMIDI) -> tuple:
     meter = tuple((int(m.numerator), int(m.denominator),
                    round(float(m.time), 6))
                   for m in midi.time_signature_changes)
+    # SMF 缺拍號時預設為 4/4；pretty_midi 輸出會補上明確的 4/4，兩者語意相同。
+    if not meter or meter[0][2] > 0:
+        meter = ((4, 4, 0.0),) + meter
     key = tuple((int(k.key_number), round(float(k.time), 6))
                 for k in midi.key_signature_changes)
     return tempo, meter, key

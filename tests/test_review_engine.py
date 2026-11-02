@@ -225,3 +225,31 @@ def test_cli_propose_preview_apply(tmp_path, capsys):
     assert main(["apply", "--manifest", str(plan), "--out",
                  str(out), "--approve"]) == 0
     assert len(read_midi(out).instruments) == 3
+
+
+def test_source_without_time_signature_is_not_falsely_rejected(tmp_path, capsys):
+    # 回歸：SMF 缺拍號時預設 4/4；pretty_midi 輸出會補上明確 4/4，不應被視為改動 meter map。
+    import mido
+    src = tmp_path / "no_meter.mid"
+    mid = mido.MidiFile(type=1, ticks_per_beat=480)
+    conductor, lead = mido.MidiTrack(), mido.MidiTrack()
+    mid.tracks += [conductor, lead]
+    conductor += [mido.MetaMessage("set_tempo", tempo=500000, time=0),
+                  mido.MetaMessage("end_of_track", time=0)]
+    lead += [mido.Message("note_on", note=60, velocity=90, time=0),
+             mido.Message("note_off", note=60, velocity=0, time=480),
+             mido.MetaMessage("end_of_track", time=0)]
+    mid.save(src)
+    assert read_midi(src).time_signature_changes == []
+    plan, cand = tmp_path / "plan.json", tmp_path / "cand.mid"
+    assert main(["propose", "--input", str(src), "--chords", "C7", "--candidate-out", str(cand),
+                 "--manifest", str(plan), "--lock", "0"]) == 0
+    assert json.loads(capsys.readouterr().out)["locked_tracks"] == [0]
+
+
+def test_changed_meter_is_still_rejected_when_source_has_no_meter(tmp_path):
+    source = pretty_midi.PrettyMIDI()
+    candidate = pretty_midi.PrettyMIDI()
+    candidate.time_signature_changes.append(pretty_midi.TimeSignature(3, 4, 0))
+    with pytest.raises(ValueError, match="global timing is locked"):
+        inspect_arrangement(source, candidate, [])
