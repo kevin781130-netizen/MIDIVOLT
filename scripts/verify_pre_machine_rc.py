@@ -10,6 +10,7 @@ import argparse
 from hashlib import sha256
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -53,9 +54,16 @@ def release_gate(wheelhouse: Path | None, expected_head: str | None = None) -> d
                 "PIP_NO_INDEX": "1", "PIP_CONFIG_FILE": os.devnull,
                 "PIP_NO_INPUT": "1", "PIP_DISABLE_PIP_VERSION_CHECK": "1"})
     if expected_head is not None:
+        if re.fullmatch(r"[0-9a-f]{40}", expected_head) is None:
+            report["reason"] = "INVALID_EXPECTED_HEAD"
+            return report
         head = run_command(["git", "rev-parse", "HEAD"], env=env, timeout=15)
         if head["status"] != "PASS" or head["stdout_tail"].strip() != expected_head:
             report["reason"] = "CHECKOUT_HEAD_MISMATCH"
+            return report
+        tree = run_command(["git", "status", "--porcelain", "--untracked-files=all"], env=env, timeout=15)
+        if tree["status"] != "PASS" or tree["stdout_tail"].strip():
+            report["reason"] = "CHECKOUT_DIRTY_OR_UNVERIFIED"
             return report
     for stage, cmd in (
         ("source_contract", [sys.executable, "scripts/verify_rc_source_contract.py", "--root", str(ROOT)]),
@@ -110,6 +118,19 @@ def release_gate(wheelhouse: Path | None, expected_head: str | None = None) -> d
         if install["status"] != "PASS" or "PASS_SUPPORTED_PYTHON_INSTALL" not in install["stdout_tail"]:
             report["reason"] = "STOP_AT_WHEEL_INSTALL"
             return report
+    # An unpinned checkout can be diagnosed, but can never be certified.
+    if expected_head is None:
+        report["reason"] = "EXPECTED_HEAD_REQUIRED_FOR_RELEASE"
+        return report
+    # Catch files modified/generated during tests or Wheel build.
+    tree = run_command(["git", "status", "--porcelain", "--untracked-files=all"], env=env, timeout=15)
+    if tree["status"] != "PASS" or tree["stdout_tail"].strip():
+        report["reason"] = "CHECKOUT_DIRTY_AFTER_TESTS"
+        return report
+    head = run_command(["git", "rev-parse", "HEAD"], env=env, timeout=15)
+    if head["status"] != "PASS" or head["stdout_tail"].strip() != expected_head:
+        report["reason"] = "CHECKOUT_HEAD_CHANGED"
+        return report
     report["status"] = "PASS_PRE_MACHINE"
     report["reason"] = "ONLY_REAL_APPLICATION_AND_PROVIDER_ACCEPTANCE_REMAINS_FOR_DECLARED_SCOPE"
     return report
