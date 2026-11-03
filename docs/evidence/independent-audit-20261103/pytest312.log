@@ -1,0 +1,36 @@
+.....................................................................s.. [ 21%]
+...................................................................F.... [ 42%]
+.ssssss................................................................. [ 63%]
+................................................................... [ 83%]
+.........................s......s........................                [100%]
+=================================== FAILURES ===================================
+________ test_type1_relocation_and_track_order_permutation_remain_valid ________
+
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-4/test_type1_relocation_and_trac0')
+
+    def test_type1_relocation_and_track_order_permutation_remain_valid(tmp_path):
+        src=create(tmp_path/'original.mid')
+        exported=tmp_path/'cubase.mid'
+        prepare_smf(src,exported,ppq=480)
+        proof=compare_smf(src,exported)
+        assert proof['musical_track_membership_preserved'] is True
+        assert proof['exact_event_match'] is True
+        midi=mido.MidiFile(exported)
+        midi.tracks[1],midi.tracks[2] = midi.tracks[2],midi.tracks[1]
+        reordered=tmp_path/'reordered.mid'
+        midi.save(reordered)
+>       assert compare_smf(src,reordered)['exact_event_match'] is True
+E       assert False is True
+
+tests/test_cubase_track_integrity.py:99: AssertionError
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_build_verified_wheel_offline.py:132: requires unsupported runtime
+SKIPPED [1] tests/test_environments.py:56: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:67: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:79: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:94: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:104: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:132: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_verify_rc_wheel_install.py:97: Only checks unsupported-version mode
+SKIPPED [1] tests/transcription/test_basic_pitch_e2e.py:68: Real-model smoke is opt-in
+1 failed, 330 passed, 9 skipped, 5 subtests passed in 16.68s

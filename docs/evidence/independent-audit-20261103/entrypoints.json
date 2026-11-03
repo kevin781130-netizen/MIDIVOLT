@@ -1,0 +1,93 @@
+[
+  {
+    "name": "midivolt",
+    "target": "midivolt.cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt [-h] {create,arrange,analyze,transcribe} ...\n\nMIDIVOLT MIDI tools\n\npositional arguments:\n  {create,arrange,analyze,transcribe}\n    create              Create chord and bass MIDI tracks\n    arrange             Add accompaniment without editing input tracks\n    analyze             Print a MIDI summary and estimated key\n    transcribe          Audio-to-MIDI using optional Basic Pitch\n\noptions:\n  -h, --help            show this help message and exit\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-accept",
+    "target": "midivolt.acceptance_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-accept [-h] --env ENV --checkout CHECKOUT --checkpoint\n                       CHECKPOINT --source SOURCE --out OUT --manifest\n                       MANIFEST --report REPORT --lock LOCK\n                       [--confirm-inference] [--timeout TIMEOUT] [--seed SEED]\n                       [--prompt PROMPT] [--vocab VOCAB] [--t5-dir T5_DIR]\n                       [--temperature TEMPERATURE] [--max-tokens MAX_TOKENS]\n                       [--melody-program MELODY_PROGRAM] [--seconds SECONDS]\n                       [--top-p TOP_P]\n                       {anticipation,text2midi}\n\npositional arguments:\n  {anticipation,text2midi}\n\noptions:\n  -h, --help            show this help message and exit\n  --env ENV\n  --checkout CHECKOUT\n  --checkpoint CHECKPOINT\n  --source SOURCE\n  --out OUT\n  --manifest MANIFEST\n  --report REPORT\n  --lock LOCK\n  --confirm-inference\n  --timeout TIMEOUT\n  --seed SEED\n  --prompt PROMPT\n  --vocab VOCAB\n  --t5-dir T5_DIR\n  --temperature TEMPERATURE\n  --max-tokens MAX_TOKENS\n  --melody-program MELODY_PROGRAM\n  --seconds SECONDS\n  --top-p TOP_P\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-ai",
+    "target": "midivolt.ai_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-ai [-h] --provider {openai,ollama} --model MODEL --prompt\n                   PROMPT --out OUT [--input INPUT] [--manifest MANIFEST]\n                   [--lock LOCK]\n                   [--parts {chords,melody,bass,drums} [{chords,melody,bass,drums} ...]]\n                   [--bars BARS] [--bpm BPM] [--key KEY]\n                   [--mode {minor,major}] [--seed SEED] [--endpoint ENDPOINT]\n                   [--allow-remote-endpoint] [--api-key-env API_KEY_ENV]\n                   [--allow-network] [--timeout TIMEOUT]\n\nMIDIVOLT opt-in provider API -> independently editable MIDI. This is genuine\nnetwork-capable AI inference when --allow-network is used with a real\nprovider/model. There are no user credentials bundled; offline tests use a\nfake response/loopback server, not an AI checkpoint. Existing MIDI is never\nmodified, and AI proposals need explicit review.\n\noptions:\n  -h, --help            show this help message and exit\n  --provider {openai,ollama}\n  --model MODEL         Provider model ID or locally installed Ollama tag\n  --prompt PROMPT\n  --out OUT             NEW .mid file, source MIDI never overwritten\n  --input INPUT         Existing MIDI for safe continuation\n  --manifest MANIFEST   Review manifest required when --input is used\n  --lock LOCK           Explicit source track lock; default locks ALL source\n                        tracks\n  --parts {chords,melody,bass,drums} [{chords,melody,bass,drums} ...]\n  --bars BARS\n  --bpm BPM\n  --key KEY\n  --mode {minor,major}\n  --seed SEED\n  --endpoint ENDPOINT   Optional explicit HTTPS/loopback API endpoint\n  --allow-remote-endpoint\n                        Authorize sending prompts/key to non-default remote\n                        HTTPS endpoint\n  --api-key-env API_KEY_ENV\n                        ENVIRONMENT VARIABLE NAME; never put key itself on\n                        command line\n  --allow-network       EXPLICIT consent to call selected AI provider\n  --timeout TIMEOUT\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-bridge",
+    "target": "midivolt.bridge_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-bridge [-h] --target {sawdust,tsov} --input INPUT --out OUT\n                       [--quantize] [--overwrite]\n\nExport MIDIVOLT MIDI for Sawdust/tsov\n\noptions:\n  -h, --help            show this help message and exit\n  --target {sawdust,tsov}\n  --input INPUT         Existing MIDI file\n  --out OUT             New MIDI file for host import\n  --quantize            Explicitly snap note boundaries to Sawdust's 24-step\n                        grid (lossy)\n  --overwrite\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-cubase",
+    "target": "midivolt.cubase_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-cubase [-h] {check,prepare,compare} ...\n\npositional arguments:\n  {check,prepare,compare}\n    check               Inspect source SMF without editing it\n    prepare             Create Cubase-friendly Type 1 SMF\n    compare             Audit DAW re-export against original\n\noptions:\n  -h, --help            show this help message and exit\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-env",
+    "target": "midivolt.environment_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-env [-h] {plan,create,install,verify} ...\n\npositional arguments:\n  {plan,create,install,verify}\n\noptions:\n  -h, --help            show this help message and exit\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-evaluate",
+    "target": "midivolt.evaluate:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-evaluate [-h] --reference REFERENCE --predicted PREDICTED\n                         [--output OUTPUT]\n                         [--onset-tolerance-ms ONSET_TOLERANCE_MS]\n\nScore one pitched MIDI stem against a reference MIDI.\n\noptions:\n  -h, --help            show this help message and exit\n  --reference REFERENCE\n  --predicted PREDICTED\n  --output OUTPUT       JSON report path\n  --onset-tolerance-ms ONSET_TOLERANCE_MS\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-hub",
+    "target": "midivolt.model_hub_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-hub [-h] {catalog,search,inspect,doctor,download} ...\n\nCurated AI MIDI model catalog, compatibility and opt-in downloads.\n\npositional arguments:\n  {catalog,search,inspect,doctor,download}\n    catalog             Offline curated models; no network\n    search              Offline curated search; --online queries Hugging Face\n    inspect             Inspect catalog or remote model metadata\n    doctor              Read-only local runtime readiness checks\n    download            Fetch ONE verified file from pinned HF commit\n\noptions:\n  -h, --help            show this help message and exit\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-model",
+    "target": "midivolt.model_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-model [-h] {text2midi,anticipation} ...\n\npositional arguments:\n  {text2midi,anticipation}\n\noptions:\n  -h, --help            show this help message and exit\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-prompt",
+    "target": "midivolt.prompt_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-prompt [-h] --prompt PROMPT --out OUT [--input INPUT]\n                       [--bars BARS] [--bpm BPM] [--key KEY]\n                       [--mode {major,minor}]\n                       [--parts {chords,melody,bass,drums} [{chords,melody,bass,drums} ...]]\n                       [--seed SEED] [--overwrite]\n\nMIDIVOLT text instruction -> editable MIDI baseline. Unlike an LLM music\ngenerator, this is a *deterministic* local arrangement sketcher. Audio-to-MIDI\nand provider-based AI are separate capabilities. No third-party trademarks or\nweights are used.\n\noptions:\n  -h, --help            show this help message and exit\n  --prompt PROMPT       e.g. '8 bars of sparse melody in D minor at 110 bpm'\n  --out OUT             New Standard MIDI file path\n  --input INPUT         Existing Standard MIDI to extend non-destructively\n  --bars BARS           Override number of generated bars (1..32)\n  --bpm BPM             Override tempo, or match source MIDI BPM\n  --key KEY             Pitch class, e.g. D, F#, Bb\n  --mode {major,minor}\n  --parts {chords,melody,bass,drums} [{chords,melody,bass,drums} ...]\n                        Which separate MIDI parts to generate\n  --seed SEED           Stable 32-bit seed for variations\n  --overwrite\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-review",
+    "target": "midivolt.review_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-review [-h] {propose,preview,apply} ...\n\npositional arguments:\n  {propose,preview,apply}\n    propose             Create reviewed MIDI candidate (without modifying\n                        source)\n    preview             Verify content hashes and print differences\n    apply               Apply reviewed candidate to a NEW MIDI file\n\noptions:\n  -h, --help            show this help message and exit\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-transcribe",
+    "target": "midivolt.transcribe:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-transcribe [-h] --input INPUT --output OUTPUT\n                           [--stem-type {bass,guitar,keys,vocal,other,drums}]\n                           [--drum-engine {off,dsp}] [--tempo TEMPO]\n                           [--onset-threshold ONSET_THRESHOLD]\n                           [--frame-threshold FRAME_THRESHOLD]\n                           [--min-note-ms MIN_NOTE_MS] [--overwrite]\n\nMIDIVOLT: batch pitched WAV stems to aligned MIDI tracks.\n\noptions:\n  -h, --help            show this help message and exit\n  --input INPUT         single WAV or folder with stems\n  --output OUTPUT       directory for MIDI and report\n  --stem-type {bass,guitar,keys,vocal,other,drums}\n                        override filename for a single WAV\n  --drum-engine {off,dsp}\n                        opt-in kick/snare/hat detection; no pretrained models\n  --tempo TEMPO         MIDI grid BPM; does not quantize notes\n  --onset-threshold ONSET_THRESHOLD\n  --frame-threshold FRAME_THRESHOLD\n  --min-note-ms MIN_NOTE_MS\n  --overwrite\n",
+    "stderr": ""
+  },
+  {
+    "name": "midivolt-tsov",
+    "target": "midivolt.tsov_cli:main",
+    "exit": 0,
+    "stdout": "usage: midivolt-tsov [-h] --python PYTHON --root ROOT [--timeout TIMEOUT]\n                     {projects,tools,status,history,undo,redo,edit,tempo} ...\n\nCall separately installed tsov MCP. Writes require --apply.\n\npositional arguments:\n  {projects,tools,status,history,undo,redo,edit,tempo}\n    projects            List tsov projects\n    tools               List permitted MCP tools offered by tsov\n    edit                Apply LLM edit to one selected track\n    tempo               Change project BPM\n\noptions:\n  -h, --help            show this help message and exit\n  --python PYTHON       tsov Python 3.12 virtualenv executable\n  --root ROOT           Path to the separately cloned tsov repo\n  --timeout TIMEOUT\n",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,16 @@
+.....................................................................s.. [ 21%]
+........................................................................ [ 42%]
+.ssssss................................................................. [ 63%]
+................................................................... [ 83%]
+.........................s......s........................                [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_build_verified_wheel_offline.py:132: requires unsupported runtime
+SKIPPED [1] tests/test_environments.py:56: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:67: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:79: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:94: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:104: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_environments.py:132: optional model environments require Python 3.10/3.11
+SKIPPED [1] tests/test_verify_rc_wheel_install.py:97: Only checks unsupported-version mode
+SKIPPED [1] tests/transcription/test_basic_pitch_e2e.py:68: Real-model smoke is opt-in
+331 passed, 9 skipped, 5 subtests passed in 24.20s

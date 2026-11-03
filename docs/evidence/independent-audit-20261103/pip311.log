@@ -1,0 +1,7 @@
+Using Python 3.11.17 environment at: /workspace/rc311
+Resolved 1 package in 298ms
+Downloading pip (1.9MiB)
+ Downloaded pip
+Prepared 1 package in 124ms
+Installed 1 package in 12ms
+ + pip==26.3

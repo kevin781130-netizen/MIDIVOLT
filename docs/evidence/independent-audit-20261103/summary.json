@@ -1,0 +1,8 @@
+{
+  "status": "PRE_DEVICE_RC_READY",
+  "tested_source_sha": "12c59e329afda6818df26f9e103fb04629dc19c1",
+  "start_sha": "5a9cf5b154b2aa42c69d6565d4022eca52b78b15",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "windows": "NOT_RUN",
+  "cubase": "NOT_RUN"
+}

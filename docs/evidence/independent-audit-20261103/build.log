@@ -1,0 +1,10 @@
+WARNING: The directory '/home/agent/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
+Processing ./.
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: midivolt
+  Building wheel for midivolt (pyproject.toml): started
+  Building wheel for midivolt (pyproject.toml): finished with status 'done'
+  Created wheel for midivolt: filename=midivolt-0.1.0rc1-py3-none-any.whl size=87083 sha256=4aeced3191de1097b45f2d687a26355dae698d172cf169ea724c5c66021b7a84
+  Stored in directory: /tmp/pip-ephem-wheel-cache-5i1wu6dg/wheels/97/3d/16/a230b7357ab2c7f81bc023015d78d2f2862795fb99e96cf658
+Successfully built midivolt

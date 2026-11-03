@@ -1,0 +1,48 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_____________ test_strict_rejects_same_tick_order_change[channel] ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-0/test_strict_rejects_same_tick_0')
+kind = 'channel'
+
+    @pytest.mark.parametrize('kind', ['channel', 'tempo'])
+    def test_strict_rejects_same_tick_order_change(tmp_path, kind):
+        mid = mido.MidiFile(type=0 if kind == 'channel' else 1)
+        track = mido.MidiTrack(); mid.tracks.append(track)
+        if kind == 'channel':
+            track.extend([mido.Message('note_off', note=60), mido.Message('note_on', note=60, velocity=90)])
+        else:
+            track.extend([mido.MetaMessage('set_tempo', tempo=500000), mido.MetaMessage('set_tempo', tempo=400000)])
+        a, b = tmp_path/'a.mid', tmp_path/'b.mid'
+        mid.save(a)
+        track.reverse()
+        mid.save(b)
+>       assert not compare_smf(a, b)['exact_event_match']
+E       assert not True
+
+tests/test_audit_event_order.py:17: AssertionError
+______________ test_strict_rejects_same_tick_order_change[tempo] _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-0/test_strict_rejects_same_tick_1')
+kind = 'tempo'
+
+    @pytest.mark.parametrize('kind', ['channel', 'tempo'])
+    def test_strict_rejects_same_tick_order_change(tmp_path, kind):
+        mid = mido.MidiFile(type=0 if kind == 'channel' else 1)
+        track = mido.MidiTrack(); mid.tracks.append(track)
+        if kind == 'channel':
+            track.extend([mido.Message('note_off', note=60), mido.Message('note_on', note=60, velocity=90)])
+        else:
+            track.extend([mido.MetaMessage('set_tempo', tempo=500000), mido.MetaMessage('set_tempo', tempo=400000)])
+        a, b = tmp_path/'a.mid', tmp_path/'b.mid'
+        mid.save(a)
+        track.reverse()
+        mid.save(b)
+>       assert not compare_smf(a, b)['exact_event_match']
+E       assert not True
+
+tests/test_audit_event_order.py:17: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_audit_event_order.py::test_strict_rejects_same_tick_order_change[channel]
+FAILED tests/test_audit_event_order.py::test_strict_rejects_same_tick_order_change[tempo]
+2 failed in 0.03s

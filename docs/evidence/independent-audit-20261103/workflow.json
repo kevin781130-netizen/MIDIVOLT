@@ -1,0 +1,263 @@
+{
+ "cases": [
+  {
+   "ppq": 480,
+   "dir": "/tmp/中文 目錄 空白 raxewrtf",
+   "steps": [
+    {
+     "cmd": "midivolt-review propose --input /tmp/中文 目錄 空白 raxewrtf/來源 source.mid --chords Bbmaj7 Ebm7 C7/Bb Bb7/Eb Dbm7b5 --candidate-out /tmp/中文 目錄 空白 raxewrtf/候選 candidate.mid --manifest /tmp/中文 目錄 空白 raxewrtf/plan 計畫.json --lock 0 --lock 1",
+     "exit": 0,
+     "stdout": "{\n  \"original_tracks\": 2,\n  \"candidate_tracks\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ]\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-review preview --manifest /tmp/中文 目錄 空白 raxewrtf/plan 計畫.json",
+     "exit": 0,
+     "stdout": "{\n  \"original_tracks\": 2,\n  \"candidate_tracks\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ]\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-review apply --manifest /tmp/中文 目錄 空白 raxewrtf/plan 計畫.json --out /tmp/中文 目錄 空白 raxewrtf/核准 approved.mid --approve",
+     "exit": 0,
+     "stdout": "\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ],\n  \"output\": \"/tmp/中文 目錄 空白 raxewrtf/核准 approved.mid\",\n  \"approved\": true\n}\n",
+     "stderr": ""
+    },
+    {
+     "expect_nonzero": true,
+     "cmd": "midivolt-review apply --manifest /tmp/中文 目錄 空白 raxewrtf/plan 計畫.json --out /tmp/中文 目錄 空白 raxewrtf/核准 approved.mid --approve",
+     "exit": 2,
+     "stdout": "",
+     "stderr": "MIDIVOLT review error: Output already exists: /tmp/中文 目錄 空白 raxewrtf/核准 approved.mid\n"
+    },
+    {
+     "cmd": "midivolt-cubase check --input /tmp/中文 目錄 空白 raxewrtf/核准 approved.mid",
+     "exit": 0,
+     "stdout": "{\n  \"input\": \"/tmp/中文 目錄 空白 raxewrtf/核准 approved.mid\",\n  \"sha256\": \"140a3816c9949bf81868c88a700a1f7d6f8e955fbb82ab746d6bea3cb3f02128\",\n  \"type\": 1,\n  \"ppq\": 480,\n  \"tracks\": 5,\n  \"notes_on\": 32,\n  \"tempo_events\": 2,\n  \"meter_events\": 2,\n  \"key_events\": 1,\n  \"control_changes\": 3,\n  \"pitch_bends\": 2,\n  \"sysex_events\": 0,\n  \"nonconductor_global_meta\": 0,\n  \"warnings\": []\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase prepare --input /tmp/中文 目錄 空白 raxewrtf/核准 approved.mid --out /tmp/中文 目錄 空白 raxewrtf/cubase 輸出.mid --ppq 480",
+     "exit": 0,
+     "stdout": "ewrtf/cubase 輸出.mid\",\n  \"type\": 1,\n  \"ppq_original\": 480,\n  \"ppq_export\": 480,\n  \"tracks\": 5,\n  \"note_events\": 32,\n  \"all_midi_events_preserved_after_tick_rescale\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved_after_tick_rescale\": true,\n  \"song_end_tick_original\": 9601,\n  \"song_end_tick_export\": 9601,\n  \"source_sha256\": \"140a3816c9949bf81868c88a700a1f7d6f8e955fbb82ab746d6bea3cb3f02128\",\n  \"output_sha256\": \"49c20815eb94c7f8c7b2f80afa25b35307fb4d05811bf7fa430ed09bf71fc6a0\",\n  \"timing_quantization_possible\": false,\n  \"cubase_application_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase compare --reference /tmp/中文 目錄 空白 raxewrtf/核准 approved.mid --returned /tmp/中文 目錄 空白 raxewrtf/cubase 輸出.mid --strict",
+     "exit": 0,
+     "stdout": "ed_tracks\": 5,\n  \"note_on_reference\": 32,\n  \"note_on_returned\": 32,\n  \"exact_event_match\": true,\n  \"event_order_preserved\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved\": true,\n  \"reference_end_tick\": 9601,\n  \"returned_end_tick\": 9601,\n  \"reference_ppq\": 480,\n  \"returned_ppq\": 480,\n  \"missing_events\": 0,\n  \"added_events\": 0,\n  \"warning\": \"Strict comparison includes metadata, track names, program/CC and tempo events. Cubase may intentionally transform them based on import options; inspect its preferences and exported file.\",\n  \"cubase_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase prepare --input /tmp/中文 目錄 空白 raxewrtf/來源 source.mid --out /tmp/中文 目錄 空白 raxewrtf/cubase 來源直出.mid --ppq 480",
+     "exit": 0,
+     "stdout": "wrtf/cubase 來源直出.mid\",\n  \"type\": 1,\n  \"ppq_original\": 480,\n  \"ppq_export\": 480,\n  \"tracks\": 3,\n  \"note_events\": 7,\n  \"all_midi_events_preserved_after_tick_rescale\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved_after_tick_rescale\": true,\n  \"song_end_tick_original\": 2400,\n  \"song_end_tick_export\": 2400,\n  \"source_sha256\": \"f18f299aa6adc06306994a6c8cc549d4141c1754c04bbe78aaec07a0350e65c1\",\n  \"output_sha256\": \"f18f299aa6adc06306994a6c8cc549d4141c1754c04bbe78aaec07a0350e65c1\",\n  \"timing_quantization_possible\": false,\n  \"cubase_application_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase compare --reference /tmp/中文 目錄 空白 raxewrtf/來源 source.mid --returned /tmp/中文 目錄 空白 raxewrtf/cubase 來源直出.mid --strict",
+     "exit": 0,
+     "stdout": "rned_tracks\": 3,\n  \"note_on_reference\": 7,\n  \"note_on_returned\": 7,\n  \"exact_event_match\": true,\n  \"event_order_preserved\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved\": true,\n  \"reference_end_tick\": 2400,\n  \"returned_end_tick\": 2400,\n  \"reference_ppq\": 480,\n  \"returned_ppq\": 480,\n  \"missing_events\": 0,\n  \"added_events\": 0,\n  \"warning\": \"Strict comparison includes metadata, track names, program/CC and tempo events. Cubase may intentionally transform them based on import options; inspect its preferences and exported file.\",\n  \"cubase_import_verified\": false\n}\n",
+     "stderr": ""
+    }
+   ],
+   "checks": {
+    "source_hash_unchanged": true,
+    "review_global_events_preserved": true,
+    "review_locked_track_semantics[æå¾ Lead]": true,
+    "review_locked_track_semantics[é¼çµ Drums]": true,
+    "review_added_tracks": [
+     "MIDIVOLT Bass",
+     "MIDIVOLT Chords"
+    ],
+    "KNOWN_review_pipeline_sysex_kept": false,
+    "KNOWN_review_pipeline_conductor_name_kept": false,
+    "cubase_prepare_source_raw_events_equal": true,
+    "cubase_prepare_source_sysex_kept": true,
+    "cubase_prepare_lead_lane_order_identical": true,
+    "cubase_prepare_ppq_type": [
+     480,
+     1
+    ],
+    "approved_to_cubase_event_multiset_equal": true
+   },
+   "hashes": {
+    "source": "f18f299aa6adc06306994a6c8cc549d4141c1754c04bbe78aaec07a0350e65c1",
+    "approved": "140a3816c9949bf81868c88a700a1f7d6f8e955fbb82ab746d6bea3cb3f02128",
+    "cubase_prepared": "49c20815eb94c7f8c7b2f80afa25b35307fb4d05811bf7fa430ed09bf71fc6a0"
+   }
+  },
+  {
+   "ppq": 960,
+   "dir": "/tmp/中文 目錄 空白 vguqwgl6",
+   "steps": [
+    {
+     "cmd": "midivolt-review propose --input /tmp/中文 目錄 空白 vguqwgl6/來源 source.mid --chords Bbmaj7 Ebm7 C7/Bb Bb7/Eb Dbm7b5 --candidate-out /tmp/中文 目錄 空白 vguqwgl6/候選 candidate.mid --manifest /tmp/中文 目錄 空白 vguqwgl6/plan 計畫.json --lock 0 --lock 1",
+     "exit": 0,
+     "stdout": "{\n  \"original_tracks\": 2,\n  \"candidate_tracks\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ]\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-review preview --manifest /tmp/中文 目錄 空白 vguqwgl6/plan 計畫.json",
+     "exit": 0,
+     "stdout": "{\n  \"original_tracks\": 2,\n  \"candidate_tracks\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ]\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-review apply --manifest /tmp/中文 目錄 空白 vguqwgl6/plan 計畫.json --out /tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid --approve",
+     "exit": 0,
+     "stdout": "\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ],\n  \"output\": \"/tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid\",\n  \"approved\": true\n}\n",
+     "stderr": ""
+    },
+    {
+     "expect_nonzero": true,
+     "cmd": "midivolt-review apply --manifest /tmp/中文 目錄 空白 vguqwgl6/plan 計畫.json --out /tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid --approve",
+     "exit": 2,
+     "stdout": "",
+     "stderr": "MIDIVOLT review error: Output already exists: /tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid\n"
+    },
+    {
+     "cmd": "midivolt-cubase check --input /tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid",
+     "exit": 0,
+     "stdout": "{\n  \"input\": \"/tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid\",\n  \"sha256\": \"f85b8798295962ca235cbca1fb09a0b262da92677eec60591ae315533130dc72\",\n  \"type\": 1,\n  \"ppq\": 960,\n  \"tracks\": 5,\n  \"notes_on\": 32,\n  \"tempo_events\": 2,\n  \"meter_events\": 2,\n  \"key_events\": 1,\n  \"control_changes\": 3,\n  \"pitch_bends\": 2,\n  \"sysex_events\": 0,\n  \"nonconductor_global_meta\": 0,\n  \"warnings\": []\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase prepare --input /tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid --out /tmp/中文 目錄 空白 vguqwgl6/cubase 輸出.mid --ppq 960",
+     "exit": 0,
+     "stdout": "gl6/cubase 輸出.mid\",\n  \"type\": 1,\n  \"ppq_original\": 960,\n  \"ppq_export\": 960,\n  \"tracks\": 5,\n  \"note_events\": 32,\n  \"all_midi_events_preserved_after_tick_rescale\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved_after_tick_rescale\": true,\n  \"song_end_tick_original\": 19201,\n  \"song_end_tick_export\": 19201,\n  \"source_sha256\": \"f85b8798295962ca235cbca1fb09a0b262da92677eec60591ae315533130dc72\",\n  \"output_sha256\": \"bcdcd4fce30fb8ce901a47eebd123f0c7d7cbc2f1f00a100dda6c87b59056172\",\n  \"timing_quantization_possible\": false,\n  \"cubase_application_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase compare --reference /tmp/中文 目錄 空白 vguqwgl6/核准 approved.mid --returned /tmp/中文 目錄 空白 vguqwgl6/cubase 輸出.mid --strict",
+     "exit": 0,
+     "stdout": "_tracks\": 5,\n  \"note_on_reference\": 32,\n  \"note_on_returned\": 32,\n  \"exact_event_match\": true,\n  \"event_order_preserved\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved\": true,\n  \"reference_end_tick\": 19201,\n  \"returned_end_tick\": 19201,\n  \"reference_ppq\": 960,\n  \"returned_ppq\": 960,\n  \"missing_events\": 0,\n  \"added_events\": 0,\n  \"warning\": \"Strict comparison includes metadata, track names, program/CC and tempo events. Cubase may intentionally transform them based on import options; inspect its preferences and exported file.\",\n  \"cubase_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase prepare --input /tmp/中文 目錄 空白 vguqwgl6/來源 source.mid --out /tmp/中文 目錄 空白 vguqwgl6/cubase 來源直出.mid --ppq 960",
+     "exit": 0,
+     "stdout": "wgl6/cubase 來源直出.mid\",\n  \"type\": 1,\n  \"ppq_original\": 960,\n  \"ppq_export\": 960,\n  \"tracks\": 3,\n  \"note_events\": 7,\n  \"all_midi_events_preserved_after_tick_rescale\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved_after_tick_rescale\": true,\n  \"song_end_tick_original\": 4800,\n  \"song_end_tick_export\": 4800,\n  \"source_sha256\": \"db5fe03500317574a6cec38128490a1ae0ddf960373aa9f6574764cef2c97dce\",\n  \"output_sha256\": \"db5fe03500317574a6cec38128490a1ae0ddf960373aa9f6574764cef2c97dce\",\n  \"timing_quantization_possible\": false,\n  \"cubase_application_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase compare --reference /tmp/中文 目錄 空白 vguqwgl6/來源 source.mid --returned /tmp/中文 目錄 空白 vguqwgl6/cubase 來源直出.mid --strict",
+     "exit": 0,
+     "stdout": "rned_tracks\": 3,\n  \"note_on_reference\": 7,\n  \"note_on_returned\": 7,\n  \"exact_event_match\": true,\n  \"event_order_preserved\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved\": true,\n  \"reference_end_tick\": 4800,\n  \"returned_end_tick\": 4800,\n  \"reference_ppq\": 960,\n  \"returned_ppq\": 960,\n  \"missing_events\": 0,\n  \"added_events\": 0,\n  \"warning\": \"Strict comparison includes metadata, track names, program/CC and tempo events. Cubase may intentionally transform them based on import options; inspect its preferences and exported file.\",\n  \"cubase_import_verified\": false\n}\n",
+     "stderr": ""
+    }
+   ],
+   "checks": {
+    "source_hash_unchanged": true,
+    "review_global_events_preserved": true,
+    "review_locked_track_semantics[æå¾ Lead]": true,
+    "review_locked_track_semantics[é¼çµ Drums]": true,
+    "review_added_tracks": [
+     "MIDIVOLT Bass",
+     "MIDIVOLT Chords"
+    ],
+    "KNOWN_review_pipeline_sysex_kept": false,
+    "KNOWN_review_pipeline_conductor_name_kept": false,
+    "cubase_prepare_source_raw_events_equal": true,
+    "cubase_prepare_source_sysex_kept": true,
+    "cubase_prepare_lead_lane_order_identical": true,
+    "cubase_prepare_ppq_type": [
+     960,
+     1
+    ],
+    "approved_to_cubase_event_multiset_equal": true
+   },
+   "hashes": {
+    "source": "db5fe03500317574a6cec38128490a1ae0ddf960373aa9f6574764cef2c97dce",
+    "approved": "f85b8798295962ca235cbca1fb09a0b262da92677eec60591ae315533130dc72",
+    "cubase_prepared": "bcdcd4fce30fb8ce901a47eebd123f0c7d7cbc2f1f00a100dda6c87b59056172"
+   }
+  },
+  {
+   "ppq": 192,
+   "dir": "/tmp/中文 目錄 空白 gcm18iis",
+   "steps": [
+    {
+     "cmd": "midivolt-review propose --input /tmp/中文 目錄 空白 gcm18iis/來源 source.mid --chords Bbmaj7 Ebm7 C7/Bb Bb7/Eb Dbm7b5 --candidate-out /tmp/中文 目錄 空白 gcm18iis/候選 candidate.mid --manifest /tmp/中文 目錄 空白 gcm18iis/plan 計畫.json --lock 0 --lock 1",
+     "exit": 0,
+     "stdout": "{\n  \"original_tracks\": 2,\n  \"candidate_tracks\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ]\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-review preview --manifest /tmp/中文 目錄 空白 gcm18iis/plan 計畫.json",
+     "exit": 0,
+     "stdout": "{\n  \"original_tracks\": 2,\n  \"candidate_tracks\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ]\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-review apply --manifest /tmp/中文 目錄 空白 gcm18iis/plan 計畫.json --out /tmp/中文 目錄 空白 gcm18iis/核准 approved.mid --approve",
+     "exit": 0,
+     "stdout": "\": 4,\n  \"locked_tracks\": [\n    0,\n    1\n  ],\n  \"notes_added\": 25,\n  \"notes_removed\": 0,\n  \"tracks_changed\": [\n    {\n      \"track\": 2,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Chords\",\n      \"notes_added\": 20,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    },\n    {\n      \"track\": 3,\n      \"before\": null,\n      \"after\": \"MIDIVOLT Bass\",\n      \"notes_added\": 5,\n      \"notes_removed\": 0,\n      \"metadata_or_automation_changed\": false,\n      \"locked\": false\n    }\n  ],\n  \"output\": \"/tmp/中文 目錄 空白 gcm18iis/核准 approved.mid\",\n  \"approved\": true\n}\n",
+     "stderr": ""
+    },
+    {
+     "expect_nonzero": true,
+     "cmd": "midivolt-review apply --manifest /tmp/中文 目錄 空白 gcm18iis/plan 計畫.json --out /tmp/中文 目錄 空白 gcm18iis/核准 approved.mid --approve",
+     "exit": 2,
+     "stdout": "",
+     "stderr": "MIDIVOLT review error: Output already exists: /tmp/中文 目錄 空白 gcm18iis/核准 approved.mid\n"
+    },
+    {
+     "cmd": "midivolt-cubase check --input /tmp/中文 目錄 空白 gcm18iis/核准 approved.mid",
+     "exit": 0,
+     "stdout": "{\n  \"input\": \"/tmp/中文 目錄 空白 gcm18iis/核准 approved.mid\",\n  \"sha256\": \"4dc81e99266e4905b79f178d1c4806ac8a8385bf9e1e4a4a3a475273fed30d3f\",\n  \"type\": 1,\n  \"ppq\": 192,\n  \"tracks\": 5,\n  \"notes_on\": 32,\n  \"tempo_events\": 2,\n  \"meter_events\": 2,\n  \"key_events\": 1,\n  \"control_changes\": 3,\n  \"pitch_bends\": 2,\n  \"sysex_events\": 0,\n  \"nonconductor_global_meta\": 0,\n  \"warnings\": []\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase prepare --input /tmp/中文 目錄 空白 gcm18iis/核准 approved.mid --out /tmp/中文 目錄 空白 gcm18iis/cubase 輸出.mid --ppq 192",
+     "exit": 0,
+     "stdout": "18iis/cubase 輸出.mid\",\n  \"type\": 1,\n  \"ppq_original\": 192,\n  \"ppq_export\": 192,\n  \"tracks\": 5,\n  \"note_events\": 32,\n  \"all_midi_events_preserved_after_tick_rescale\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved_after_tick_rescale\": true,\n  \"song_end_tick_original\": 3841,\n  \"song_end_tick_export\": 3841,\n  \"source_sha256\": \"4dc81e99266e4905b79f178d1c4806ac8a8385bf9e1e4a4a3a475273fed30d3f\",\n  \"output_sha256\": \"ea862baaf450b69ecb1b3b60798eaa7a048a10ee99669f3a170e1b5fb2d4c2a7\",\n  \"timing_quantization_possible\": false,\n  \"cubase_application_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase compare --reference /tmp/中文 目錄 空白 gcm18iis/核准 approved.mid --returned /tmp/中文 目錄 空白 gcm18iis/cubase 輸出.mid --strict",
+     "exit": 0,
+     "stdout": "ed_tracks\": 5,\n  \"note_on_reference\": 32,\n  \"note_on_returned\": 32,\n  \"exact_event_match\": true,\n  \"event_order_preserved\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved\": true,\n  \"reference_end_tick\": 3841,\n  \"returned_end_tick\": 3841,\n  \"reference_ppq\": 192,\n  \"returned_ppq\": 192,\n  \"missing_events\": 0,\n  \"added_events\": 0,\n  \"warning\": \"Strict comparison includes metadata, track names, program/CC and tempo events. Cubase may intentionally transform them based on import options; inspect its preferences and exported file.\",\n  \"cubase_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase prepare --input /tmp/中文 目錄 空白 gcm18iis/來源 source.mid --out /tmp/中文 目錄 空白 gcm18iis/cubase 來源直出.mid --ppq 192",
+     "exit": 0,
+     "stdout": "m18iis/cubase 來源直出.mid\",\n  \"type\": 1,\n  \"ppq_original\": 192,\n  \"ppq_export\": 192,\n  \"tracks\": 3,\n  \"note_events\": 7,\n  \"all_midi_events_preserved_after_tick_rescale\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved_after_tick_rescale\": true,\n  \"song_end_tick_original\": 960,\n  \"song_end_tick_export\": 960,\n  \"source_sha256\": \"6e43294b666318428d6b1565e30878a04c5c19e9910b52e0f12e8231e23ee74f\",\n  \"output_sha256\": \"6e43294b666318428d6b1565e30878a04c5c19e9910b52e0f12e8231e23ee74f\",\n  \"timing_quantization_possible\": false,\n  \"cubase_application_import_verified\": false\n}\n",
+     "stderr": ""
+    },
+    {
+     "cmd": "midivolt-cubase compare --reference /tmp/中文 目錄 空白 gcm18iis/來源 source.mid --returned /tmp/中文 目錄 空白 gcm18iis/cubase 來源直出.mid --strict",
+     "exit": 0,
+     "stdout": "turned_tracks\": 3,\n  \"note_on_reference\": 7,\n  \"note_on_returned\": 7,\n  \"exact_event_match\": true,\n  \"event_order_preserved\": true,\n  \"musical_track_membership_preserved\": true,\n  \"song_duration_preserved\": true,\n  \"reference_end_tick\": 960,\n  \"returned_end_tick\": 960,\n  \"reference_ppq\": 192,\n  \"returned_ppq\": 192,\n  \"missing_events\": 0,\n  \"added_events\": 0,\n  \"warning\": \"Strict comparison includes metadata, track names, program/CC and tempo events. Cubase may intentionally transform them based on import options; inspect its preferences and exported file.\",\n  \"cubase_import_verified\": false\n}\n",
+     "stderr": ""
+    }
+   ],
+   "checks": {
+    "source_hash_unchanged": true,
+    "review_global_events_preserved": true,
+    "review_locked_track_semantics[æå¾ Lead]": true,
+    "review_locked_track_semantics[é¼çµ Drums]": true,
+    "review_added_tracks": [
+     "MIDIVOLT Bass",
+     "MIDIVOLT Chords"
+    ],
+    "KNOWN_review_pipeline_sysex_kept": false,
+    "KNOWN_review_pipeline_conductor_name_kept": false,
+    "cubase_prepare_source_raw_events_equal": true,
+    "cubase_prepare_source_sysex_kept": true,
+    "cubase_prepare_lead_lane_order_identical": true,
+    "cubase_prepare_ppq_type": [
+     192,
+     1
+    ],
+    "approved_to_cubase_event_multiset_equal": true
+   },
+   "hashes": {
+    "source": "6e43294b666318428d6b1565e30878a04c5c19e9910b52e0f12e8231e23ee74f",
+    "approved": "4dc81e99266e4905b79f178d1c4806ac8a8385bf9e1e4a4a3a475273fed30d3f",
+    "cubase_prepared": "ea862baaf450b69ecb1b3b60798eaa7a048a10ee99669f3a170e1b5fb2d4c2a7"
+   }
+  }
+ ],
+ "status": "PASS"
+}
