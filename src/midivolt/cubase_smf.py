@@ -120,8 +120,10 @@ def _ordered_streams(midi: mido.MidiFile, dest_ppq: int) -> dict:
         for tick, msg in _events(track):
             if hasattr(msg, "channel"):
                 lane = ("channel", msg.channel)
-            else:
+            elif msg.type in GLOBAL_META or msg.type == "sysex":
                 lane = ("meta", msg.type)
+            else:
+                continue
             data = msg.dict()
             data.pop("time", None)
             streams[lane].append((_scale(tick, midi.ticks_per_beat, dest_ppq),
