@@ -109,6 +109,27 @@ def _lanes_preserved(before: mido.MidiFile, after: mido.MidiFile,
             _musical_lane_signature(after, dest_ppq))
 
 
+def _ordered_streams(midi: mido.MidiFile, dest_ppq: int) -> dict:
+    """Keep same-tick order within channels and global meta streams.
+
+    Channel splitting and conductor relocation remain permitted. Stable sorting
+    follows the SMF track merge order for simultaneous cross-track events.
+    """
+    streams = defaultdict(list)
+    for track in midi.tracks:
+        for tick, msg in _events(track):
+            if hasattr(msg, "channel"):
+                lane = ("channel", msg.channel)
+            else:
+                lane = ("meta", msg.type)
+            data = msg.dict()
+            data.pop("time", None)
+            streams[lane].append((_scale(tick, midi.ticks_per_beat, dest_ppq),
+                                  json.dumps(data, sort_keys=True, ensure_ascii=False)))
+    return {lane: sorted(items, key=lambda item: item[0])
+            for lane, items in streams.items()}
+
+
 def _count_note_ons(midi: mido.MidiFile) -> int:
     return sum(
         1 for track in midi.tracks for msg in track
@@ -258,6 +279,8 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
         raise ValueError("Export changed one or more MIDI event values or tick positions")
     if not _lanes_preserved(midi, prepared, ppq):
         raise ValueError("Export changed original MIDI track membership")
+    if _ordered_streams(midi, ppq) != _ordered_streams(prepared, ppq):
+        raise ValueError("Export changed MIDI event order")
     expected_end = _scale(_song_end(midi), midi.ticks_per_beat, ppq)
     if _song_end(prepared) != expected_end:
         raise ValueError("Export changed MIDI song duration or trailing silence")
@@ -316,6 +339,7 @@ def compare_smf(reference: str | Path, returned: str | Path) -> dict:
     missing = events_before - events_after
     added = events_after - events_before
     lanes_preserved = _lanes_preserved(before, after, common_ppq)
+    order_preserved = _ordered_streams(before, common_ppq) == _ordered_streams(after, common_ppq)
     # end_of_track is structurally reorganized for Type-0->Type-1 and
     # conductor relocation, so compare the *song end* rather than per-track
     # EOT messages. MIDI note events alone cannot detect trimmed trailing bars.
@@ -330,7 +354,8 @@ def compare_smf(reference: str | Path, returned: str | Path) -> dict:
         "returned_tracks": len(after.tracks),
         "note_on_reference": _count_note_ons(before),
         "note_on_returned": _count_note_ons(after),
-        "exact_event_match": not missing and not added and duration_preserved and lanes_preserved,
+        "exact_event_match": not missing and not added and duration_preserved and lanes_preserved and order_preserved,
+        "event_order_preserved": order_preserved,
         "musical_track_membership_preserved": lanes_preserved,
         "song_duration_preserved": duration_preserved,
         "reference_end_tick": original_end,
