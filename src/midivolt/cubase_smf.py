@@ -109,7 +109,7 @@ def _lanes_preserved(before: mido.MidiFile, after: mido.MidiFile,
             _musical_lane_signature(after, dest_ppq))
 
 
-def _ordered_streams(midi: mido.MidiFile, dest_ppq: int) -> dict:
+def _ordered_streams(midi: mido.MidiFile, dest_ppq: int, *, channels: bool = True) -> dict:
     """Keep same-tick order within channels and global meta streams.
 
     Channel splitting and conductor relocation remain permitted. Stable sorting
@@ -118,7 +118,7 @@ def _ordered_streams(midi: mido.MidiFile, dest_ppq: int) -> dict:
     streams = defaultdict(list)
     for track in midi.tracks:
         for tick, msg in _events(track):
-            if hasattr(msg, "channel"):
+            if hasattr(msg, "channel") and channels:
                 lane = ("channel", msg.channel)
             elif msg.type in GLOBAL_META or msg.type == "sysex":
                 lane = ("meta", msg.type)
@@ -281,7 +281,7 @@ def prepare_smf(source: str | Path, destination: str | Path, *,
         raise ValueError("Export changed one or more MIDI event values or tick positions")
     if not _lanes_preserved(midi, prepared, ppq):
         raise ValueError("Export changed original MIDI track membership")
-    if _ordered_streams(midi, ppq) != _ordered_streams(prepared, ppq):
+    if _ordered_streams(midi, ppq, channels=midi.type == 0) != _ordered_streams(prepared, ppq, channels=midi.type == 0):
         raise ValueError("Export changed MIDI event order")
     expected_end = _scale(_song_end(midi), midi.ticks_per_beat, ppq)
     if _song_end(prepared) != expected_end:
@@ -341,7 +341,7 @@ def compare_smf(reference: str | Path, returned: str | Path) -> dict:
     missing = events_before - events_after
     added = events_after - events_before
     lanes_preserved = _lanes_preserved(before, after, common_ppq)
-    order_preserved = _ordered_streams(before, common_ppq) == _ordered_streams(after, common_ppq)
+    order_preserved = _ordered_streams(before, common_ppq, channels=before.type == 0) == _ordered_streams(after, common_ppq, channels=before.type == 0)
     # end_of_track is structurally reorganized for Type-0->Type-1 and
     # conductor relocation, so compare the *song end* rather than per-track
     # EOT messages. MIDI note events alone cannot detect trimmed trailing bars.
