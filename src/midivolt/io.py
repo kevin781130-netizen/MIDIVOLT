@@ -9,6 +9,31 @@ import tempfile
 import pretty_midi
 
 
+def _latin1_safe_names(midi: pretty_midi.PrettyMIDI) -> pretty_midi.PrettyMIDI:
+    """pretty_midi 以 latin-1 編碼軌名；非 Latin-1 名稱（中文、emoji）會 UnicodeEncodeError。
+
+    此類名稱改以 UTF-8 位元組寫入（Cubase 等 DAW 的慣例）。可 latin-1 編碼的名稱原樣保留，
+    因此由檔案讀入的軌名往返位元組不變；不修改呼叫者的物件。
+    """
+    def unsafe(name: str) -> bool:
+        try:
+            name.encode("latin-1")
+            return False
+        except UnicodeEncodeError:
+            return True
+
+    instruments = getattr(midi, "instruments", ())
+    if not any(unsafe(inst.name) for inst in instruments):
+        return midi
+    from copy import deepcopy
+
+    safe = deepcopy(midi)
+    for inst in safe.instruments:
+        if unsafe(inst.name):
+            inst.name = inst.name.encode("utf-8").decode("latin-1")
+    return safe
+
+
 def read_midi(path: str | Path) -> pretty_midi.PrettyMIDI:
     source = Path(path)
     if source.suffix.lower() not in {".mid", ".midi"}:
@@ -41,7 +66,7 @@ def write_midi(
     os.close(fd)
     staged = Path(temp_name)
     try:
-        midi.write(str(staged))
+        _latin1_safe_names(midi).write(str(staged))
         if overwrite:
             os.replace(staged, target)
         else:

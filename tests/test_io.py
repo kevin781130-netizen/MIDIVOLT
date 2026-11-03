@@ -66,3 +66,23 @@ def test_bad_output_path_never_writes(tmp_path):
         write_midi(example_midi(), tmp_path / "song.wav")
     with pytest.raises(FileNotFoundError):
         write_midi(example_midi(), tmp_path / "missing" / "song.mid")
+
+
+def test_non_latin1_track_names_are_written_as_utf8_and_do_not_mutate_input(tmp_path):
+    # 回歸：中文／emoji 軌名不得使 write_midi 以 UnicodeEncodeError 崩潰。
+    import mido
+    midi = pretty_midi.PrettyMIDI()
+    for name in ("鋼琴 Piano", "🎹 Lead", "Café"):
+        inst = pretty_midi.Instrument(program=0, name=name)
+        inst.notes.append(pretty_midi.Note(90, 60, 0, 1))
+        midi.instruments.append(inst)
+    path = write_midi(midi, tmp_path / "中文 空白.mid")
+    assert [i.name for i in midi.instruments] == ["鋼琴 Piano", "🎹 Lead", "Café"]  # 輸入未被改動
+    names = [m.name for t in mido.MidiFile(str(path), charset="latin-1").tracks for m in t
+             if m.type == "track_name"]
+    assert "鋼琴 Piano".encode("utf-8").decode("latin-1") in names  # 以 UTF-8 位元組寫入
+    assert "🎹 Lead".encode("utf-8").decode("latin-1") in names
+    assert "Café" in names  # 可 latin-1 的名稱維持原行為
+    # 可 latin-1 的名稱維持原行為，且讀回再寫出位元組不變（往返）
+    again = write_midi(read_midi(path), tmp_path / "again.mid")
+    assert [i.name for i in read_midi(again).instruments] == [i.name for i in read_midi(path).instruments]
