@@ -43,7 +43,7 @@ def _existing_file(path: str | Path, label: str) -> Path:
 def _sections(text: str) -> int:
     if not isinstance(text, str):
         raise ValueError("segments must be a phrase string (e.g. A8B8)")
-    parts = re.findall(r"[A-Za-z](?:[1-9]|1[0-6])", text)
+    parts = re.findall(r"[A-Za-z](?:1[0-6]|[1-9])", text)
     if not parts or "".join(parts) != text:
         raise ValueError("segments must be letter+1..16 bars, e.g. A8B8")
     return sum(int(p[1:]) for p in parts)
