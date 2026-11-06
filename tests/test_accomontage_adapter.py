@@ -116,3 +116,35 @@ def test_rejects_ambiguous_track_and_no_overwrite(tmp_path):
     with pytest.raises(FileExistsError):
         ingest(accompaniment_track=1, **common)
     assert target.read_bytes() == b"DO NOT OVERWRITE"
+
+def test_rejects_request_track_swap_without_publishing(tmp_path):
+    src = _midi(tmp_path / "song.mid")
+    prepare(source=src, workdir=tmp_path / "stage",
+            melody_track=0, chord_track=1, segments="A4")
+    request_file = tmp_path / "stage" / "request.json"
+    data = json.loads(request_file.read_text())
+    data["source_melody_track"] = 1
+    data["source_chord_track"] = 0
+    request_file.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="does not match"):
+        ingest(request=request_file,
+               generated=_generated(tmp_path / "external.mid"),
+               accompaniment_track=1, output=tmp_path / "candidate.mid",
+               manifest=tmp_path / "proposal.json")
+    assert not (tmp_path / "candidate.mid").exists()
+    assert not (tmp_path / "proposal.json").exists()
+
+
+def test_rejects_staged_midi_mutation(tmp_path):
+    src = _midi(tmp_path / "song.mid")
+    request = prepare(source=src, workdir=tmp_path / "stage",
+                      melody_track=0, chord_track=1, segments="A4")
+    staged = pretty_midi.PrettyMIDI(request["lead_sheet"])
+    staged.instruments[0].notes[0].pitch += 2
+    staged.write(request["lead_sheet"])
+    with pytest.raises(ValueError, match="changed"):
+        ingest(request=tmp_path / "stage" / "request.json",
+               generated=_generated(tmp_path / "external.mid"),
+               accompaniment_track=1, output=tmp_path / "candidate.mid",
+               manifest=tmp_path / "proposal.json")
+    assert not (tmp_path / "candidate.mid").exists()
