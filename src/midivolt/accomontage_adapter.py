@@ -73,6 +73,35 @@ def _source_contract(midi: pretty_midi.PrettyMIDI, melody: int, chords: int,
     return {"bars": bars, "bpm": bpm}
 
 
+
+def _track_events(track: pretty_midi.Instrument) -> tuple:
+    """Compare musical events after a MIDI serialization round-trip."""
+    return (
+        track.program, track.is_drum, track.name,
+        sorted((n.pitch, n.velocity, round(n.start, 6), round(n.end, 6))
+               for n in track.notes),
+        sorted((x.number, x.value, round(x.time, 6))
+               for x in track.control_changes),
+        sorted((x.pitch, round(x.time, 6)) for x in track.pitch_bends),
+    )
+
+
+def _validate_stage(source: pretty_midi.PrettyMIDI,
+                    staged: pretty_midi.PrettyMIDI,
+                    melody_track: int, chord_track: int) -> None:
+    """Refuse a modified request that would lock a different source track."""
+    if len(staged.instruments) != 2:
+        raise ValueError("staged lead sheet must have exactly two tracks")
+    for staged_index, source_index in enumerate((melody_track, chord_track)):
+        if _track_events(staged.instruments[staged_index]) != _track_events(
+                source.instruments[source_index]):
+            raise ValueError("staged lead sheet does not match chosen source tracks")
+    if (source.get_tempo_changes()[0].tolist() != staged.get_tempo_changes()[0].tolist() or
+            source.get_tempo_changes()[1].tolist() != staged.get_tempo_changes()[1].tolist() or
+            [(x.numerator, x.denominator, round(x.time, 6)) for x in source.time_signature_changes] !=
+            [(x.numerator, x.denominator, round(x.time, 6)) for x in staged.time_signature_changes]):
+        raise ValueError("staged lead sheet tempo or meter was altered")
+
 def prepare(*, source: str | Path, workdir: str | Path, melody_track: int,
             chord_track: int, segments: str) -> dict:
     """Build a minimal lead sheet in a NEW folder; never run AccoMontage."""
@@ -133,8 +162,12 @@ def ingest(*, request: str | Path, generated: str | Path, accompaniment_track: i
     if _hash(src) != data["source_sha256"] or _hash(stage) != data["lead_sheet_sha256"]:
         raise ValueError("source or staged MIDI changed since prepare")
     source_midi = read_midi(src)
-    _source_contract(source_midi, data["source_melody_track"],
-                     data["source_chord_track"], data["segmentation"])
+    contract = _source_contract(source_midi, data["source_melody_track"],
+                                data["source_chord_track"], data["segmentation"])
+    if contract["bars"] != data.get("bars") or abs(contract["bpm"] - data.get("bpm", -1)) > 1e-6:
+        raise ValueError("request metadata no longer matches source MIDI")
+    _validate_stage(source_midi, read_midi(stage), data["source_melody_track"],
+                    data["source_chord_track"])
     raw = _existing_file(generated, "generated MIDI")
     dst = Path(output).expanduser().resolve()
     man = Path(manifest).expanduser().resolve()
